@@ -20,7 +20,7 @@
   var html = [
     '<div class="ph-card">',
     '  <div class="ph-avatar">',
-    '    <img src="/img/avatar.svg" alt="vopth" width="88" height="88">',
+    '    <img src="/img/avatar.jpg" alt="vopth" width="88" height="88">',
     '  </div>',
     '  <div class="ph-body">',
     '    <div class="ph-name">vopth<span class="ph-badge">IT 折腾爱好者</span></div>',

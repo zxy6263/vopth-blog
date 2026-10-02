@@ -124,7 +124,7 @@ $endpoints = @(
     @{ Path = '/feed';                             Name = 'feed alias -> atom.xml' },
     @{ Path = '/css/custom.css';                   Name = 'custom.css' },
     @{ Path = '/js/profile-hero.js';               Name = 'profile-hero.js' },
-    @{ Path = '/img/avatar.svg';                   Name = 'avatar' },
+    @{ Path = '/img/avatar.jpg';                   Name = 'avatar' },
     @{ Path = '/img/banner-home.svg';              Name = 'home banner' },
     @{ Path = '/img/favicon.svg';                  Name = 'favicon' },
     @{ Path = '/sitemap.xml';                      Name = 'sitemap (SEO)' },

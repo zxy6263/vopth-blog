@@ -33,7 +33,7 @@ social:
 favicon: /img/favicon.svg
 
 avatar:
-  img: /img/avatar.svg # 想换成真人照片：把照片放到 source/img/ 再改这里
+  img: /img/avatar.jpg # 换成别的头像：把图放到 source/img/ 再改这一行
   effect: true # 鼠标悬停转一圈
 
 # ------------------------------------------------------------------ 顶部大图（首页 banner）

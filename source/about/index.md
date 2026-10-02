@@ -8,7 +8,7 @@ toc: false
 ---
 
 <div class="about-hero">
-  <img class="about-avatar" src="/img/avatar.svg" alt="vopth">
+  <img class="about-avatar" src="/img/avatar.jpg" alt="vopth">
   <div class="about-hero-body">
     <h2 class="about-name">vopth</h2>
     <p class="about-tagline">一个爱瞎折腾IT的爱好者</p>
