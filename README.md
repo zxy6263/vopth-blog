@@ -314,6 +314,47 @@ git push
 **front-matter 和主题标签插件的完整写法**（提示框、选项卡、按钮、图片、mermaid 流程图…）都写在
 [`source/_posts/hexo-writing-guide.md`](source/_posts/hexo-writing-guide.md) 里，忘了就翻这篇。
 
+### 给文章配封面图
+
+首页的文章卡片会显示封面图。来源有三种，优先级从高到低：
+
+1. **文章 front-matter 里写 `cover: /img/xxx.jpg`** —— 手动指定，最优先
+2. **`source/img/covers/<文章文件名>.jpg`** —— **约定式自动匹配，推荐**
+3. 都没有 → 主题的默认渐变图（`cover-1/2/3.svg` 等三张随机）
+
+**推荐第 2 种，因为完全不用改 front-matter：**
+
+```
+文章   source/_posts/my-first-post.md
+封面   source/img/covers/my-first-post.jpg     ← 文件名一样就行
+```
+
+扩展名支持 `jpg` / `jpeg` / `png` / `webp` / `gif`（按此顺序匹配）。
+构建时会自动挂上去，日志里能看到确认：
+
+```
+INFO  Post cover auto-assigned: my-first-post -> /img/covers/my-first-post.jpg
+```
+
+> ⚠️ **这一行日志很重要。** 如果文件名没对上，**不会有任何报错** ——
+> 只是静默地用回默认渐变图。所以配完封面建议扫一眼构建日志，确认匹配成功。
+> 这类"静默失效"是这个项目里踩过最多次的坑。
+
+**尺寸建议**：
+
+| | |
+| --- | --- |
+| 比例 | 首页卡片是横向长方形，建议 **16:10 或 3:2** |
+| 尺寸 | 宽 **800～1200px** 足够 |
+| 大小 | **小于 300 KB**，否则首页明显变慢 |
+| 格式 | 照片用 jpg，需要透明背景用 png / webp |
+
+> 手机原图动辄几 MB，直接放会让首页明显变慢。
+>
+> 实现见 `scripts/post-cover.js`；目录里还有一份说明
+> `source/img/covers/_README.md`（以 `_` 开头，**不会被发布到网站上** ——
+> 这利用了 Hexo 会忽略 `source/` 下所有 `_` 开头文件的特性）。
+
 ---
 
 ## 七、可选功能
