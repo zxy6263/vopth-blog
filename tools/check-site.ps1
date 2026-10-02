@@ -129,11 +129,11 @@ $endpoints = @(
     @{ Path = '/img/hero.jpg';                     Name = 'home hero image' },
     @{ Path = '/img/banner-home.svg';              Name = '404 banner (svg)' },
     @{ Path = '/img/favicon.svg';                  Name = 'favicon' },
-    @{ Path = '/js/banner-video.js';               Name = 'banner-video.js (about)' },
-    @{ Path = '/videos/about-banner.mp4';          Name = 'about banner video' },
-    @{ Path = '/videos/about-banner-poster.jpg';   Name = 'about banner poster' },
-    @{ Path = '/videos/archive-banner.mp4';        Name = 'archive banner video' },
-    @{ Path = '/videos/archive-banner-poster.jpg'; Name = 'archive banner poster' },
+    @{ Path = '/js/banner-video.js';               Name = 'banner-video.js (pool)' },
+    @{ Path = '/videos/banner-1.mp4';              Name = 'banner pool video 1' },
+    @{ Path = '/videos/banner-1-poster.jpg';       Name = 'banner pool poster 1' },
+    @{ Path = '/videos/banner-2.mp4';              Name = 'banner pool video 2' },
+    @{ Path = '/videos/banner-2-poster.jpg';       Name = 'banner pool poster 2' },
     @{ Path = '/sitemap.xml';                      Name = 'sitemap (SEO)' },
     @{ Path = '/robots.txt';                       Name = 'robots.txt (SEO)' }
 )

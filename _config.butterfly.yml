@@ -44,12 +44,19 @@ disable_top_img: false
 default_top_img: /img/banner-page.svg # 其他页面的默认顶部图
 index_img: /img/hero.jpg # 首页顶部图（1920×1186 横向大图）
 # banner-home.svg 仍然保留：它现在是 404 页面的背景图（见下方 error_404）
-# 归档页 banner：这里填的是【海报图】。
-# 真正的视频由 source/js/banner-video.js 注入；海报图是 JS 未执行或
-# 视频加载失败时的占位，避免出现黑块。
-archive_img: /videos/archive-banner-poster.jpg
-tag_img: /img/banner-page.svg
-category_img: /img/banner-page.svg
+# ---- 归档 / 分类 / 标签页 banner ----
+# 这三项填的都是【海报图】。真正的视频由 source/js/banner-video.js 注入，
+# 而且是从视频池里【随机】挑一个 —— 每次打开页面都可能不一样。
+#
+# 海报图负责另外两种情况：
+#   1. JS 未执行 / 加载失败
+#   2. 用户系统开了「减少动态效果」（prefers-reduced-motion）
+#
+# ⚠️ 不要改上面的 default_top_img —— 文章页会用它，
+#    那里是干净的渐变图，不是视频。
+archive_img: /videos/banner-1-poster.jpg
+tag_img: /videos/banner-1-poster.jpg
+category_img: /videos/banner-1-poster.jpg
 footer_img: false # 页脚不加背景图，保持干净
 
 # 文章封面（不单独设置时随机用下面这几张）

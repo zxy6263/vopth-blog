@@ -399,12 +399,14 @@ cloudflare_analytics: 你的token
 > 提交 sitemap 会让**新站被收录的速度快很多**。刚上线的站点，搜索引擎不主动抓取是常态，
 > 主动提交是最有效的一步。
 
-### 给某个页面加视频 banner
+### 视频 banner（关于 / 归档 / 分类 / 标签 / 友链）
 
 Butterfly **不支持**把视频作为 `top_img`，所以这部分是自己实现的（`source/js/banner-video.js`）。
-目前关于页和归档页用了视频，首页用的是照片。
 
-**三步加一个视频 banner：**
+**这五个页面共用一个「视频池」，每次打开页面随机挑一个播放** —— 所以每次刷新看到的可能不同。
+首页用的是照片，文章页用的是渐变图（都不在池子里）。
+
+**加一个新视频只要三步：**
 
 **① 把视频压到可用体积**
 
@@ -413,48 +415,69 @@ Butterfly **不支持**把视频作为 `top_img`，所以这部分是自己实�
 
 ```powershell
 # 先估算体积（只编码 5 秒再外推，几秒出结果）
-powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name new-banner -Estimate
+powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name banner-3 -Estimate
 
 # 满意就正式编码
-powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name new-banner
+powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name banner-3
 ```
 
 输出两个文件：
 
-- `source/videos/new-banner.mp4` —— 1920 宽、30fps、无音轨、已启用 faststart
-- `source/videos/new-banner-poster.jpg` —— 海报图（视频的一帧）
+- `source/videos/banner-3.mp4` —— 1920 宽、30fps、无音轨、已启用 faststart
+- `source/videos/banner-3-poster.jpg` —— 海报图（视频的一帧）
 
 > 工具已经处理了三个真实的坑：**中文路径**（老版 ffmpeg 支持差，会先复制到 ASCII 临时目录）、
 > **奇数高度**（等比缩放可能得到 725 这种奇数，而 H.264 的 yuv420p 要求宽高都是偶数，
 > 否则编码直接报错）、以及**老版本参数差异**（不用 `-hide_banner`、不用 `scale=W:-2`）。
+>
+> `-Estimate` 采样的是视频**中间**片段而不是开头 —— 开头往往最平缓，会明显低估
+> （实测低估过 39%：预估 3.95 MB，实际 5.48 MB）。
 
-**② 把海报图设为该页的 banner 背景**
+**② 把新视频加进池子**
 
-| 页面 | 改哪里 |
-| --- | --- |
-| 关于页 / 任意 `source` 页面 | 该页 front-matter 加 `top_img: /videos/new-banner-poster.jpg` |
-| 归档页 | `_config.butterfly.yml` 的 `archive_img` |
-| 分类页 / 标签页 | `category_img` / `tag_img` |
-
-**③ 在 `source/js/banner-video.js` 的白名单里加一条**
+编辑 `source/js/banner-video.js` 的 `VIDEO_POOL` 数组：
 
 ```js
-var VIDEO_PAGES = {
-  '/about/':    { src: '/videos/about-banner.mp4',   poster: '/videos/about-banner-poster.jpg' },
-  '/archives/': { src: '/videos/archive-banner.mp4', poster: '/videos/archive-banner-poster.jpg' },
-  '/new-page/': {                                     // ← 照这样加
-    src: '/videos/new-banner.mp4',
-    poster: '/videos/new-banner-poster.jpg'
-  }
-};
+var VIDEO_POOL = [
+  { src: '/videos/banner-1.mp4', poster: '/videos/banner-1-poster.jpg' },
+  { src: '/videos/banner-2.mp4', poster: '/videos/banner-2-poster.jpg' },
+  { src: '/videos/banner-3.mp4', poster: '/videos/banner-3-poster.jpg' }  // ← 加这一行
+];
 ```
 
-> **海报图那一步为什么必须有？** 它是**优雅降级**：JS 没执行、视频加载失败、
-> 或用户系统开了「减少动态效果」（`prefers-reduced-motion`）时，看到的是静态图，而不是黑块。
+就完了。**不需要改任何页面配置** —— 池子里的视频会自动在所有池内页面随机出现。
+想改池子覆盖哪些页面，编辑同一个文件里的 `POOL_PAGES` 数组。
+
+**③（可选）换掉服务端渲染的静态海报图**
+
+JS 关闭或加载失败时显示的那张静态图配在这几处：
+
+| 页面 | 配在哪 |
+| --- | --- |
+| 关于页 | `source/about/index.md` 的 `top_img` |
+| 友链页 | `source/link/index.md` 的 `top_img` |
+| 分类页 | `source/categories/index.md` 的 `top_img` |
+| 标签页 | `source/tags/index.md` 的 `top_img` |
+| 归档页 | `_config.butterfly.yml` 的 `archive_img` |
+
+> **为什么必须有海报图？** 它是**优雅降级**的最后一层，三层都不会出现黑块：
+>
+> 1. JS 正常执行 → 随机视频
+> 2. 系统开了「减少动态效果」→ 随机海报图（`banner-video.js` 会连背景一起换掉）
+> 3. JS 未执行 / 加载失败 → 上面配置的静态海报图
+
+> ⚠️ **分类页 / 标签页的海报图必须配在页面 front-matter 的 `top_img` 里，
+> 不能只靠 `_config.butterfly.yml` 的 `category_img` / `tag_img`。**
+>
+> 原因：主题 `layout/includes/header/index.pug` 的分支写的是 `when 'category'`（**单数**），
+> 而 `scripts/helpers/page.js` 返回的是 `'categories'`（**复数**），两者对不上，
+> 于是掉进 `default` 分支只读 `page.top_img || default_top_img` ——
+> **配置项被整个绕过，而且不报任何错。**
 
 > **体积参考**：本站两个视频分别是 30 秒 → 3.17 MB、93 秒 → 5.48 MB
 > （原素材 83 MB / 90 MB，压到 3.8% / 6.1%）。因为启用了 faststart，
 > 浏览器可以边下边播，不会等整个文件下载完。
+> 池子变大后，访问几次浏览器就会把用到的视频缓存住，不会一直重复下载。
 
 > ⚠️ **`tools/` 下的 `.ps1` 脚本必须保持纯 ASCII。**
 > Windows PowerShell 5.1 会把无 BOM 的 UTF-8 文件按 GBK 解码，中文注释被解错后

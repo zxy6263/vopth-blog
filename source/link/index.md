@@ -3,6 +3,9 @@ title: 友情链接
 date: 2026-10-03 00:00:00
 updated: 2026-10-03 00:00:00
 type: link
+# banner 视频由 source/js/banner-video.js 从视频池随机注入；
+# 这里是指定的海报图（JS 未执行 / 减少动态效果时的降级显示）
+top_img: /videos/banner-1-poster.jpg
 comments: false
 ---
 
