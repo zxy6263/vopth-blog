@@ -395,6 +395,17 @@ npx hexo new "my-post"    # 文件名英文
 # 然后改 title: 我的文章
 ```
 
+### 本地访问 `/feed` 是 404，但线上是好的
+
+正常现象。`_headers` 和 `_redirects` 是 **Cloudflare Pages 的功能**，本地的 `npm run server`（Hexo 自带服务器）不认识这两个文件，所以 `/feed`、`/rss` 这类跳转规则只在线上生效。
+
+想本地确认规则内容，直接看根目录的 `_redirects` 文件；想确认它有没有进构建产物：
+
+```bash
+npm run build
+cat public/_redirects     # Windows 用 type public\_redirects
+```
+
 ### 想回滚到上一个版本
 
 Cloudflare → 你的 Pages 项目 → **Deployments** 列表 → 找到历史版本 → 点 **Rollback**。不用改代码。
