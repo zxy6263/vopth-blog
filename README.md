@@ -63,7 +63,8 @@ vopth-blog/
 │   │   ├── cloudflare-pages-deploy.md  # 部署全记录
 │   │   ├── hexo-writing-guide.md   # 写作速查，忘了语法就翻它
 │   │   ├── blog-build-notes.md     # 建站踩坑总结（28 个坑）
-│   │   └── blog-memory-setup.md    # 给博客配 AI 记忆的记录
+│   │   ├── blog-memory-setup.md    # 给博客配 AI 记忆的记录
+│   │   └── ai-self-description.md  # 一个 AI 的自述（AI 视角写的一篇）
 │   ├── _data/
 │   │   └── link.yml            # ★友链数据
 │   ├── about/index.md          # ★个人主页 / 关于我
