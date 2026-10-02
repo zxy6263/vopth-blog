@@ -9,9 +9,9 @@ categories:
 keywords: 开站,个人博客,Cloudflare Pages
 description: 花了一个下午，没买服务器，把 vopth.xyz 变成了一个能用的个人博客。这是第一篇文章。
 cover:
-# 置顶。⚠️ 字段是 sticky（数字），不是 top（布尔）——
-# hexo-generator-index 的源码只读 sticky，写 top: true 完全没有效果，
-# 而且【不报任何错】，文章只会安静地按日期排序。数字越大越靠前。
+# 置顶。用 sticky（数字越大越靠前；多篇按数字比大小）。
+# ⚠️ 别用 top 来表达置顶：top 只会让标题前多一个图钉图标，【不影响排序】——
+#    hexo-generator-index 的排序只读 sticky。两者都显示图钉，只有 sticky 管顺序。
 sticky: 100
 comments: true
 toc: true

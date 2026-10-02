@@ -96,7 +96,7 @@ git add . && git commit -m "post: 文章标题" && git push
 | `categories` | 分类，**建议只写一个** |
 | `description` | 摘要，用于首页和 SEO |
 | `cover` | 封面图，留空会自动匹配（见下） |
-| `sticky` | 是否置顶（数字越大越靠前）。**注意不是 `top`** |
+| `sticky` | 是否置顶（数字越大越靠前）。**别用 `top`** —— 它只加图钉、不改排序 |
 | `toc` | 是否显示目录 |
 | `comments` | 是否开启评论 |
 | `author_avatar` | 设为 `false` 可关闭本文的作者署名 |

@@ -42,7 +42,7 @@ npx hexo publish "草稿标题"    # 草稿转为正式文章
 | `description` | 摘要，用于首页和 SEO | 一句话概括 |
 | `keywords` | SEO 关键词 | `Hexo,博客` |
 | `cover` | 本文封面图 | `/img/cover-1.svg` |
-| `sticky` | 置顶（数字越大越靠前）。⚠️ **不是 `top`** —— 写 `top` 不生效且不报错 | `100` |
+| `sticky` | 置顶（数字越大越靠前）。⚠️ **别用 `top`** —— 它只加图钉图标、**不影响排序** | `100` |
 | `toc` | 是否显示目录 | `true` / `false` |
 | `comments` | 是否开启评论 | `true` / `false` |
 | `mathjax` | 本文是否需要数学公式 | `true` |
