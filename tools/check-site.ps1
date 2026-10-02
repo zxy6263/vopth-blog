@@ -126,7 +126,9 @@ $endpoints = @(
     @{ Path = '/js/profile-hero.js';               Name = 'profile-hero.js' },
     @{ Path = '/img/avatar.svg';                   Name = 'avatar' },
     @{ Path = '/img/banner-home.svg';              Name = 'home banner' },
-    @{ Path = '/img/favicon.svg';                  Name = 'favicon' }
+    @{ Path = '/img/favicon.svg';                  Name = 'favicon' },
+    @{ Path = '/sitemap.xml';                      Name = 'sitemap (SEO)' },
+    @{ Path = '/robots.txt';                       Name = 'robots.txt (SEO)' }
 )
 
 $homeBody = $null
@@ -192,15 +194,6 @@ Write-Host ''
 Write-Host '--- 4. Homepage content ---'
 
 if ($homeBody) {
-    $robots = Invoke-Page ($BaseUrl + '/robots.txt')
-    if ($robots.Status -eq 200) {
-        Write-Result 'robots.txt' 'PASS' '200'
-        $script:Pass++
-    } else {
-        Write-Result 'robots.txt' 'WARN' 'not generated (optional)'
-        $script:Warn++
-    }
-
     $contentChecks = @(
         @{ Name = 'site title "Vopth"';      Test = ($homeBody -match 'Vopth') },
         @{ Name = 'profile card script';      Test = ($homeBody -match 'profile-hero\.js') },
@@ -212,6 +205,8 @@ if ($homeBody) {
         @{ Name = 'post cards rendered';      Test = ($homeBody -match 'recent-post-item') },
         @{ Name = 'RSS autodiscovery';        Test = ($homeBody -match 'atom\.xml') },
         @{ Name = 'Open Graph meta';          Test = ($homeBody -match 'og:title') },
+        @{ Name = 'canonical link';           Test = ($homeBody -match 'rel="canonical"') },
+        @{ Name = 'link rel=sitemap';         Test = ($homeBody -match 'rel="sitemap"') },
         @{ Name = 'charset utf-8';            Test = ($homeBody -match 'charset="utf-8"') },
         @{ Name = 'html lang zh-CN';          Test = ($homeBody -match 'lang="zh-CN"') }
     )

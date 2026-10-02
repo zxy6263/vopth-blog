@@ -89,6 +89,20 @@ search:
   content: true
   format: html
 
+# ------------------------------------------------------------------ 站点地图
+# 供搜索引擎抓取，加快新文章的收录速度
+# 生成地址：https://vopth.xyz/sitemap.xml
+sitemap:
+  path: sitemap.xml
+  # 注意：rel 保持 false 是刻意的。
+  # hexo-generator-sitemap 的 rel: true 靠正则 /<head>(?!<\/head>).+?<\/head>/
+  # 注入 <link rel="sitemap">，但该正则没有 s 标志、跨不了换行，
+  # 在带换行的 HTML 上会静默失效。改为在 _config.butterfly.yml 的
+  # inject.head 里手动注入，效果一样且可靠。
+  rel: false
+  tags: false # 标签页/分类页属于内容较薄的聚合页，不放进 sitemap
+  categories: false
+
 # ------------------------------------------------------------------ 主题
 theme: butterfly
 

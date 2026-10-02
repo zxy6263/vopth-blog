@@ -344,5 +344,10 @@ CDN:
 inject:
   head:
     - '<link rel="stylesheet" href="/css/custom.css">'
+    # 手动声明站点地图。
+    # 不用 hexo-generator-sitemap 的 rel: true —— 它的注入正则是
+    # /<head>(?!<\/head>).+?<\/head>/，没有 s 标志、跨不了换行，
+    # 在带换行的 HTML 上静默失效（上游 bug）。这里手动注入最可靠。
+    - '<link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">'
   bottom:
     - '<script src="/js/profile-hero.js" defer></script>'

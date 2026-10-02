@@ -70,6 +70,7 @@ vopth-blog/
 │   ├── tags/index.md           # 标签页
 │   ├── css/custom.css          # ★自定义样式
 │   ├── js/profile-hero.js      # 首页个人简介卡片
+│   ├── robots.txt              # 爬虫规则 + 声明 sitemap 位置
 │   └── img/                    # 头像、logo、banner、封面（全是本地 SVG）
 │
 ├── tools/post-build.js         # 构建收尾：把 _headers/_redirects 放进 public/
@@ -356,30 +357,41 @@ cloudflare_analytics: 你的token
 
 ### 让搜索引擎收录
 
-**Google**：到 [Google Search Console](https://search.google.com/search-console) 添加 `https://vopth.xyz`，用「HTML 标记」方式验证，把 content 值填到：
+**已经做好的部分**（本项目已内置，无需操作）：
 
-```yaml
-site_verification:
-  - name: google-site-verification
-    content: 你的验证码
-```
+| 项目 | 状态 | 说明 |
+| --- | --- | --- |
+| `sitemap.xml` | ✅ 已生成 | 8 条 URL，全部使用 `https://vopth.xyz` |
+| `robots.txt` | ✅ 已生成 | 允许所有爬虫，并声明了 sitemap 位置 |
+| `<link rel="sitemap">` | ✅ 已注入 | 通过 `_config.butterfly.yml` 的 `inject.head` 手动注入 |
+| `canonical` / Open Graph / JSON-LD | ✅ 已注入 | 由 Butterfly 主题提供 |
+| `atom.xml`（RSS） | ✅ 已生成 | `/feed`、`/rss` 也会 301 跳转过来 |
 
-本站目前**没有**生成 sitemap。需要的话装一个：
+> **关于 `<meta name="keywords">` 和 `<meta name="robots">`**：站点没有这两项，
+> **这是刻意的，不是遗漏**。`keywords` 从 2009 年起就被 Google 完全忽略；
+> `robots` 默认就是 `index,follow`，写上等于没写。不要被过时的 SEO 教程带偏。
 
-```bash
-npm install hexo-generator-sitemap
-```
+**还需要你手动做的部分**（域名上线后）：
 
-然后在 `_config.yml` 加：
+1. 到 [Google Search Console](https://search.google.com/search-console) 添加 `https://vopth.xyz`
+2. 用「HTML 标记」方式验证，把拿到的 content 值填进 `_config.butterfly.yml`：
 
-```yaml
-sitemap:
-  path: sitemap.xml
-```
+   ```yaml
+   site_verification:
+     - name: google-site-verification
+       content: 你的验证码
+   ```
 
-**提交站点地图**：在 Search Console 或[百度搜索资源平台](https://ziyuan.baidu.com/)提交 `https://vopth.xyz/sitemap.xml`。
+3. 在 Search Console 的 **Sitemaps** 里提交：
 
-**RSS**：已自动生成，地址是 `https://vopth.xyz/atom.xml`（`/feed`、`/rss` 也会 301 跳转过来）。
+   ```
+   https://vopth.xyz/sitemap.xml
+   ```
+
+4. 国内的话，再到[百度搜索资源平台](https://ziyuan.baidu.com/)做同样的验证和提交
+
+> 提交 sitemap 会让**新站被收录的速度快很多**。刚上线的站点，搜索引擎不主动抓取是常态，
+> 主动提交是最有效的一步。
 
 ---
 
