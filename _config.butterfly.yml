@@ -44,7 +44,10 @@ disable_top_img: false
 default_top_img: /img/banner-page.svg # 其他页面的默认顶部图
 index_img: /img/hero.jpg # 首页顶部图（1920×1186 横向大图）
 # banner-home.svg 仍然保留：它现在是 404 页面的背景图（见下方 error_404）
-archive_img: /img/banner-page.svg
+# 归档页 banner：这里填的是【海报图】。
+# 真正的视频由 source/js/banner-video.js 注入；海报图是 JS 未执行或
+# 视频加载失败时的占位，避免出现黑块。
+archive_img: /videos/archive-banner-poster.jpg
 tag_img: /img/banner-page.svg
 category_img: /img/banner-page.svg
 footer_img: false # 页脚不加背景图，保持干净

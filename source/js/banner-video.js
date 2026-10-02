@@ -20,6 +20,10 @@
     '/about/': {
       src: '/videos/about-banner.mp4',
       poster: '/videos/about-banner-poster.jpg'
+    },
+    '/archives/': {
+      src: '/videos/archive-banner.mp4',
+      poster: '/videos/archive-banner-poster.jpg'
     }
   };
 

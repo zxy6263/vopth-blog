@@ -71,10 +71,15 @@ vopth-blog/
 │   ├── tags/index.md           # 标签页
 │   ├── css/custom.css          # ★自定义样式
 │   ├── js/profile-hero.js      # 首页个人简介卡片
+│   ├── js/banner-video.js      # 按页面注入视频 banner（Butterfly 不支持，需自己实现）
 │   ├── robots.txt              # 爬虫规则 + 声明 sitemap 位置
-│   └── img/                    # 头像、logo、banner、封面（全是本地 SVG）
+│   ├── img/                    # 头像、logo、banner、封面（SVG + 照片）
+│   └── videos/                 # 视频 banner 及其海报图
 │
-├── tools/post-build.js         # 构建收尾：把 _headers/_redirects 放进 public/
+├── tools/
+│   ├── post-build.js           # 构建收尾：把 _headers/_redirects 放进 public/
+│   ├── check-site.ps1          # 部署后验收脚本（40+ 项检查）
+│   └── compress-banner-video.ps1  # 把手机/壁纸站下的大视频压成适合做 banner 的 mp4
 └── public/                     # 构建产物（已 gitignore，不用管）
 ```
 
@@ -393,6 +398,67 @@ cloudflare_analytics: 你的token
 
 > 提交 sitemap 会让**新站被收录的速度快很多**。刚上线的站点，搜索引擎不主动抓取是常态，
 > 主动提交是最有效的一步。
+
+### 给某个页面加视频 banner
+
+Butterfly **不支持**把视频作为 `top_img`，所以这部分是自己实现的（`source/js/banner-video.js`）。
+目前关于页和归档页用了视频，首页用的是照片。
+
+**三步加一个视频 banner：**
+
+**① 把视频压到可用体积**
+
+手机 / 壁纸站下载的 4K 60fps 素材通常 **80～150 MB、码率 20+ Mbps** ——
+**远超 Cloudflare 的单文件上限，原样部署会直接失败**。用仓库里的工具处理：
+
+```powershell
+# 先估算体积（只编码 5 秒再外推，几秒出结果）
+powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name new-banner -Estimate
+
+# 满意就正式编码
+powershell -File tools\compress-banner-video.ps1 -Source "D:\Downloads\xxx.mp4" -Name new-banner
+```
+
+输出两个文件：
+
+- `source/videos/new-banner.mp4` —— 1920 宽、30fps、无音轨、已启用 faststart
+- `source/videos/new-banner-poster.jpg` —— 海报图（视频的一帧）
+
+> 工具已经处理了三个真实的坑：**中文路径**（老版 ffmpeg 支持差，会先复制到 ASCII 临时目录）、
+> **奇数高度**（等比缩放可能得到 725 这种奇数，而 H.264 的 yuv420p 要求宽高都是偶数，
+> 否则编码直接报错）、以及**老版本参数差异**（不用 `-hide_banner`、不用 `scale=W:-2`）。
+
+**② 把海报图设为该页的 banner 背景**
+
+| 页面 | 改哪里 |
+| --- | --- |
+| 关于页 / 任意 `source` 页面 | 该页 front-matter 加 `top_img: /videos/new-banner-poster.jpg` |
+| 归档页 | `_config.butterfly.yml` 的 `archive_img` |
+| 分类页 / 标签页 | `category_img` / `tag_img` |
+
+**③ 在 `source/js/banner-video.js` 的白名单里加一条**
+
+```js
+var VIDEO_PAGES = {
+  '/about/':    { src: '/videos/about-banner.mp4',   poster: '/videos/about-banner-poster.jpg' },
+  '/archives/': { src: '/videos/archive-banner.mp4', poster: '/videos/archive-banner-poster.jpg' },
+  '/new-page/': {                                     // ← 照这样加
+    src: '/videos/new-banner.mp4',
+    poster: '/videos/new-banner-poster.jpg'
+  }
+};
+```
+
+> **海报图那一步为什么必须有？** 它是**优雅降级**：JS 没执行、视频加载失败、
+> 或用户系统开了「减少动态效果」（`prefers-reduced-motion`）时，看到的是静态图，而不是黑块。
+
+> **体积参考**：本站两个视频分别是 30 秒 → 3.17 MB、93 秒 → 5.48 MB
+> （原素材 83 MB / 90 MB，压到 3.8% / 6.1%）。因为启用了 faststart，
+> 浏览器可以边下边播，不会等整个文件下载完。
+
+> ⚠️ **`tools/` 下的 `.ps1` 脚本必须保持纯 ASCII。**
+> Windows PowerShell 5.1 会把无 BOM 的 UTF-8 文件按 GBK 解码，中文注释被解错后
+> 可能产生假的引号或括号，直接导致脚本语法报错 —— 这个坑我实地踩过一次。
 
 ---
 
