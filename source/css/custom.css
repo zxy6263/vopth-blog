@@ -372,3 +372,128 @@
     rgba(0, 0, 0, 0.55) 100%
   );
 }
+
+/* ---------------------------------------------------------------------------
+ *  6. 订阅页（/subscribe/）
+ *
+ *  全部规则都以 #article-container 开头，因为页面内容在正文容器里，
+ *  而主题对容器内的 h2 / code 等元素有一套默认样式，不提高优先级会被盖掉。
+ *  标题特意用 <div> 而不是 <h2>，从根上避开主题的标题装饰（下划线 + 图标）。
+ * ------------------------------------------------------------------------- */
+
+#article-container .subscribe-hero {
+  padding: 30px 20px 26px;
+  margin-bottom: 10px;
+  text-align: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(242, 101, 34, 0.12), rgba(74, 108, 247, 0.12));
+  border: 1px solid rgba(242, 101, 34, 0.2);
+}
+
+#article-container .subscribe-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 14px;
+  font-size: 27px;
+  color: #fff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f26522, #ff9a44);
+  box-shadow: 0 6px 18px rgba(242, 101, 34, 0.32);
+}
+
+#article-container .subscribe-hero-title {
+  margin-bottom: 10px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--font-color);
+}
+
+#article-container .subscribe-hero-desc {
+  font-size: 0.95rem;
+  line-height: 1.9;
+  color: var(--card-meta);
+}
+
+/* 订阅地址 + 复制按钮 */
+#article-container .subscribe-copy {
+  display: flex;
+  align-items: stretch;
+  margin: 16px 0 12px;
+  border: 1px solid rgba(74, 108, 247, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+#article-container .subscribe-copy code {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  padding: 13px 16px;
+  font-size: 0.92rem;
+  color: var(--font-color);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  word-break: break-all;
+}
+
+#article-container .subscribe-copy button {
+  flex: 0 0 auto;
+  padding: 0 22px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  background: #4a6cf7;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.25s;
+}
+
+#article-container .subscribe-copy button:hover {
+  background: #3355e0;
+}
+
+#article-container .subscribe-copy button.copied {
+  background: #00c4b6;
+}
+
+/* 小提示条 */
+#article-container .subscribe-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--card-meta);
+  border-radius: 8px;
+  border-left: 3px solid #00c4b6;
+  background: rgba(0, 196, 182, 0.08);
+}
+
+#article-container .subscribe-tip i {
+  margin-top: 5px;
+  color: #00c4b6;
+}
+
+#article-container .subscribe-tip code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--text-bg-hover);
+}
+
+@media screen and (max-width: 768px) {
+  #article-container .subscribe-copy {
+    flex-direction: column;
+  }
+
+  #article-container .subscribe-copy button {
+    padding: 12px;
+  }
+}

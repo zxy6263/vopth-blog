@@ -19,7 +19,7 @@ toc: false
     <div class="about-links">
       <a href="https://github.com/zxy6263" target="_blank" rel="noopener"><i class="fab fa-github"></i>GitHub</a>
       <a href="mailto:3585648116@qq.com"><i class="fas fa-envelope"></i>邮箱</a>
-      <a href="/atom.xml"><i class="fas fa-rss"></i>RSS 订阅</a>
+      <a href="/subscribe/"><i class="fas fa-rss"></i>RSS 订阅</a>
       <a href="/archives/"><i class="fas fa-archive"></i>全部文章</a>
     </div>
   </div>

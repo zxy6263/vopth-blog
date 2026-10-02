@@ -65,6 +65,7 @@ vopth-blog/
 │   ├── _data/
 │   │   └── link.yml            # ★友链数据
 │   ├── about/index.md          # ★个人主页 / 关于我
+│   ├── subscribe/index.md      # 订阅本站（RSS 说明页，不是 feed 本身）
 │   ├── link/index.md           # 友链页
 │   ├── categories/index.md     # 分类页
 │   ├── tags/index.md           # 标签页
@@ -365,7 +366,7 @@ cloudflare_analytics: 你的token
 | `robots.txt` | ✅ 已生成 | 允许所有爬虫，并声明了 sitemap 位置 |
 | `<link rel="sitemap">` | ✅ 已注入 | 通过 `_config.butterfly.yml` 的 `inject.head` 手动注入 |
 | `canonical` / Open Graph / JSON-LD | ✅ 已注入 | 由 Butterfly 主题提供 |
-| `atom.xml`（RSS） | ✅ 已生成 | `/feed`、`/rss` 也会 301 跳转过来 |
+| `atom.xml`（RSS / Atom） | ✅ 已生成 | `/feed`、`/rss` 也会 301 跳过来。首页 RSS 图标指向 `/subscribe/` 说明页，**feed 本身保持原始 XML 不动**（改它会废掉所有阅读器） |
 
 > **关于 `<meta name="keywords">` 和 `<meta name="robots">`**：站点没有这两项，
 > **这是刻意的，不是遗漏**。`keywords` 从 2009 年起就被 Google 完全忽略；

@@ -27,7 +27,10 @@ menu:
 social:
   fab fa-github: https://github.com/zxy6263 || Github || '#24292e'
   fas fa-envelope: mailto:3585648116@qq.com || Email || '#4a7dbe'
-  fas fa-rss: /atom.xml || RSS || '#f26522'
+  # 指向「订阅本站」页面，而不是直接指向 /atom.xml。
+  # /atom.xml 本身保持原始 XML 不变 —— RSS 阅读器需要拿到它，
+  # 若在 /atom.xml 上做跳转或美化页，所有阅读器都会失效。
+  fas fa-rss: /subscribe/ || RSS 订阅 || '#f26522'
 
 # ------------------------------------------------------------------ 站点图标 / 头像
 favicon: /img/favicon.svg

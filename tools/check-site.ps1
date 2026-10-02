@@ -117,6 +117,7 @@ $endpoints = @(
     @{ Path = '/categories/';                      Name = 'categories' },
     @{ Path = '/tags/';                            Name = 'tags' },
     @{ Path = '/link/';                            Name = 'friend links' },
+    @{ Path = '/subscribe/';                       Name = 'subscribe page' },
     @{ Path = '/2026/10/03/hello-vopth/';          Name = 'post: hello-vopth' },
     @{ Path = '/2026/10/03/hexo-writing-guide/';   Name = 'post: writing guide' },
     @{ Path = '/atom.xml';                         Name = 'RSS feed' },
