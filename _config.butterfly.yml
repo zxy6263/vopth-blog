@@ -39,7 +39,8 @@ avatar:
 # ------------------------------------------------------------------ 顶部大图（首页 banner）
 disable_top_img: false
 default_top_img: /img/banner-page.svg # 其他页面的默认顶部图
-index_img: /img/banner-home.svg # 首页顶部图
+index_img: /img/hero.jpg # 首页顶部图（1920×1186 横向大图）
+# banner-home.svg 仍然保留：它现在是 404 页面的背景图（见下方 error_404）
 archive_img: /img/banner-page.svg
 tag_img: /img/banner-page.svg
 category_img: /img/banner-page.svg

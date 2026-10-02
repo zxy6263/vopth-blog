@@ -125,13 +125,43 @@
 
 /* 首页 banner 的站点标题更有分量 */
 #page-header #site-title {
+  /* 主题默认 2.85em（约 40px），在全屏 banner 上偏小，这里放大到约 62px。
+     用 em 而不是 px：会跟随主题的基础字号一起缩放，用户放大字体时也会跟着变。 */
+  font-size: 4.4em;
   font-weight: 700;
   letter-spacing: 0.04em;
+  line-height: 1.15;
 }
 
 #page-header #site-subtitle {
+  /* 主题默认 1.72em（约 24px）→ 约 32px
+     注意：这里【只给容器】设字号。#subtitle 是它的子元素，
+     如果再给 #subtitle 写一次 em，会变成 2.3 × 2.3 的复合效果（约 74px）而爆掉。 */
+  font-size: 2.3em;
   font-weight: 400;
   opacity: 0.95;
+}
+
+/* banner 现在用的是照片，画面偏亮（大面积白色天空）。
+   白色文字压在亮背景上对比度不够，加一层文字阴影保证可读性。
+   text-shadow 是【继承属性】，设在外层容器上，内部的 #subtitle 会自动继承，
+   不需要（也绝不应该）再写一遍。 */
+#page-header #site-title,
+#page-header #site-subtitle {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* 手机上屏幕窄，标题要缩回去，否则会折行溢出。
+   必须自己写：上面的选择器用了两个 id，优先级高于主题的移动端规则，
+   不覆盖的话手机上会一直用桌面的大字号。 */
+@media screen and (max-width: 768px) {
+  #page-header #site-title {
+    font-size: 2.6em;
+  }
+
+  #page-header #site-subtitle {
+    font-size: 1.5em;
+  }
 }
 
 /* 文章卡片 / 侧边栏卡片圆角统一 */
@@ -313,4 +343,32 @@
    所以描边必须加在【容器】上。加在 img 上会因为超出容器而被裁掉，看不到效果。 */
 #aside-content .avatar-img {
   box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.4);
+}
+
+/* ---------------------------------------------------------------------------
+ *  5. 首页 banner 照片的遮罩加深
+ *
+ *  背景换成了照片，画面中上部是大面积【亮白天空】，而标题正好落在 43% 高度那一带。
+ *  主题默认遮罩是 --mark-bg = 30% 黑，算下来：白底 255 → 178 (#B2B2B2)，
+ *  白字压在上面对比度只有约 1.9:1，远低于 WCAG 建议的 4.5:1，标题会"糊在背景里"。
+ *
+ *  这里改成中间深、两端略浅的渐变：
+ *    - 把文字所在的中间带压到 50% 黑（#808080，对比度约 3.9:1），配合上面的
+ *      text-shadow 已经足够清晰；
+ *    - 顶部保留稍浅的遮罩，不至于把树叶和天空的层次全部压死。
+ *
+ *  选择器比主题多一个 .full_page 类，优先级更高；且 custom.css 加载在主题 CSS 之后。
+ *  只作用于首页 banner —— 内页用的是渐变 SVG，不需要加深。
+ *
+ *  觉得太暗或还是看不清，改下面这几个数字即可。
+ * ------------------------------------------------------------------------- */
+#page-header.full_page:not(.not-top-img)::before {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.42) 30%,
+    rgba(0, 0, 0, 0.5) 50%,
+    rgba(0, 0, 0, 0.44) 70%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
 }

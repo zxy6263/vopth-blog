@@ -125,7 +125,8 @@ $endpoints = @(
     @{ Path = '/css/custom.css';                   Name = 'custom.css' },
     @{ Path = '/js/profile-hero.js';               Name = 'profile-hero.js' },
     @{ Path = '/img/avatar.jpg';                   Name = 'avatar' },
-    @{ Path = '/img/banner-home.svg';              Name = 'home banner' },
+    @{ Path = '/img/hero.jpg';                     Name = 'home hero image' },
+    @{ Path = '/img/banner-home.svg';              Name = '404 banner (svg)' },
     @{ Path = '/img/favicon.svg';                  Name = 'favicon' },
     @{ Path = '/sitemap.xml';                      Name = 'sitemap (SEO)' },
     @{ Path = '/robots.txt';                       Name = 'robots.txt (SEO)' }
@@ -198,7 +199,7 @@ if ($homeBody) {
         @{ Name = 'site title "Vopth"';      Test = ($homeBody -match 'Vopth') },
         @{ Name = 'profile card script';      Test = ($homeBody -match 'profile-hero\.js') },
         @{ Name = 'custom stylesheet';        Test = ($homeBody -match 'css/custom\.css') },
-        @{ Name = 'home banner image';        Test = ($homeBody -match 'banner-home\.svg') },
+        @{ Name = 'home hero image';          Test = ($homeBody -match 'hero\.jpg') },
         @{ Name = 'local fontawesome';        Test = ($homeBody -match 'pluginsSrc/@fortawesome') },
         @{ Name = 'local typed.js';           Test = ($homeBody -match 'pluginsSrc/typed\.js') },
         @{ Name = 'nav menu link /about/';    Test = ($homeBody -match 'href="/about/"') },
