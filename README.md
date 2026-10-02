@@ -1,8 +1,8 @@
 # vopth.xyz — 个人主页与博客
 
-> **Hexo + Butterfly + Cloudflare Pages。不需要买服务器，不需要备案。**
+> **Hexo + Butterfly + Cloudflare。不需要买服务器，不需要备案。**
 
-域名：`vopth.xyz`（阿里云注册） · 托管：Cloudflare Pages（免费） · 生成器：Hexo 8 · 主题：Butterfly 5.7
+域名：`vopth.xyz`（阿里云注册） · 托管：Cloudflare Workers 静态资源（免费） · 生成器：Hexo 8 · 主题：Butterfly 5.7
 
 ---
 
@@ -11,9 +11,9 @@
 - [一、这套方案是什么](#一这套方案是什么)
 - [二、目录结构](#二目录结构)
 - [三、本地开发](#三本地开发)
-- [四、部署到 Cloudflare Pages](#四部署到-cloudflare-pages)
+- [四、部署到 Cloudflare](#四部署到-cloudflare)
   - [4.1 推送到 GitHub](#41-推送到-github)
-  - [4.2 创建 Pages 项目](#42-创建-pages-项目)
+  - [4.2 创建项目并连接仓库](#42-创建项目并连接仓库)
   - [4.3 把域名 DNS 接入 Cloudflare](#43-把域名-dns-接入-cloudflare)
   - [4.4 绑定自定义域名](#44-绑定自定义域名)
 - [五、上线后请立刻改这几处](#五上线后请立刻改这几处)
@@ -33,7 +33,7 @@
 - **没有服务器**：构建出来的 `public/` 是纯静态文件（HTML/CSS/JS/图片），不需要任何后端
 - **不需要备案**：托管在 Cloudflare 的海外节点，不涉及国内服务器
 - **自带 HTTPS**：证书由 Cloudflare 自动签发和续期，不用管
-- **免费**：Cloudflare Pages 免费套餐**不限流量**
+- **免费且不限量**：纯静态资源、**没有 Worker 脚本**，所以静态请求不计费、不限量
 - **不依赖国内被墙的 CDN**：字体图标、打字机、灯箱、分享按钮等全部打包在你自己站点里（`/pluginsSrc/`），不请求 jsDelivr / unpkg / Google Fonts
 
 浏览器打开控制台 Network 面板看一下就知道：**没有任何第三方域名的请求**。
@@ -46,6 +46,7 @@
 vopth-blog/
 ├── _config.yml                 # 站点主配置（标题、域名、URL 结构、分页…）
 ├── _config.butterfly.yml       # 主题配置（外观、菜单、侧边栏、评论…）★改得最多
+├── wrangler.jsonc              # Cloudflare 配置（★关键：声明构建产物目录）
 ├── _headers                    # Cloudflare 响应头（缓存、安全头）
 ├── _redirects                  # Cloudflare 跳转规则（换域名/短链）
 ├── package.json                # 依赖与命令
@@ -102,60 +103,98 @@ npx hexo new page "about"
 
 ---
 
-## 四、部署到 Cloudflare Pages
+## 四、部署到 Cloudflare
 
 整个流程大约 20 分钟，其中大部分时间在等 DNS 生效。
 
+> **本文档描述的是 Cloudflare 现行的「Workers Builds / 导入仓库」流程。**
+> Cloudflare 正在把旧的 Pages 产品并入 Workers，新账号点 **Create** 后进的就是
+> Workers 流程。两者对本项目都可用，差异见 4.2 末尾。
+
 ### 4.1 推送到 GitHub
 
-先在 GitHub 上建一个**空仓库**（不要勾选 README / .gitignore），名字建议 `vopth-blog`，然后：
+先在 GitHub 上建一个**空仓库**（不要勾选 README / .gitignore / license），名字 `vopth-blog`，然后：
 
 ```bash
 cd vopth-blog
 
-git init
+git init -b main
 git add .
 git commit -m "feat: 初始化 Hexo 博客"
-git branch -M main
-git remote add origin https://github.com/zxy6263/vopth-blog.git
+git remote add origin git@github.com:zxy6263/vopth-blog.git
 git push -u origin main
 ```
 
-> 仓库设为 **Public 或 Private 都可以**，Cloudflare Pages 两种都支持。
+> **建议用 SSH 而不是 HTTPS**：GitHub 已经不允许用账号密码推送。如果
+> `github.com:22` 端口被网络屏蔽（国内很常见），在 `~/.ssh/config` 里加一段即可走 443：
+>
+> ```
+> Host github.com
+>   HostName ssh.github.com
+>   Port 443
+>   User git
+> ```
+>
+> ⚠️ 该文件必须是**无 BOM 的 UTF-8**。用 PowerShell 的 `Set-Content -Encoding UTF8`
+> 会写入 BOM，导致 `Bad configuration option: \357\273\277#` 而失败。
+> 验证方法：`git ls-remote git@github.com:用户名/仓库.git` 返回 0 即成功。
+
+> 仓库设为 **Public 或 Private 都可以**，Cloudflare 两种都支持。
 > 但如果你以后想用 giscus 评论，仓库必须是 Public。
 
-### 4.2 创建 Pages 项目
+### 4.2 创建项目并连接仓库
 
 1. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/)（没有账号就注册一个，免费）
-2. 左侧 **Workers & Pages** → **Create** → 切到 **Pages** 标签 → **Connect to Git**
-3. 授权 GitHub，选中 `vopth-blog` 仓库
-4. 构建配置按下表填：
+2. 左侧 **Workers & Pages** → **Create**（中文界面：「设置您的应用程序」）
+3. 授权 GitHub，选中 `zxy6263/vopth-blog` 仓库
+4. 按下表填写：
 
-| 配置项 | 填什么 |
-| --- | --- |
-| Project name | `vopth-blog`（决定你的 `xxx.pages.dev` 地址） |
-| Production branch | `main` |
-| Framework preset | `Hexo`（如果列表里没有就选 `None`） |
-| **Build command** | **`npm run build`** |
-| Build output directory | `public` |
+| 配置项 | 填什么 | 说明 |
+| --- | --- | --- |
+| Project name / 项目名称 | `vopth-blog` | 决定你的 `xxx.workers.dev` 临时地址 |
+| Build command / 构建命令 | **`npm run build`** | ⚠️ 见下方警告 |
+| Deploy command / 部署命令 | `npx wrangler deploy` | **保持默认，不用改** |
 
-5. 展开 **Environment variables (advanced)**，加一条：
+5. 展开 **高级设置 / Build variables**，加一条环境变量：
 
 | 变量名 | 值 |
 | --- | --- |
 | `NODE_VERSION` | `22` |
 
-6. 点 **Save and Deploy**，等 1～3 分钟
-
-构建完成后会给你一个临时地址，类似 `https://vopth-blog.pages.dev`。**先打开它确认博客能正常显示**，再进行下一步绑域名。
+6. 点 **部署 / Deploy**。首次构建约 **3～5 分钟**（要装 755 个依赖包）
 
 > ⚠️ **Build command 一定要写 `npm run build`，不要写 `hexo generate`。**
-> 因为我们的构建命令是 `hexo generate && node tools/post-build.js`，后半步负责把
-> `_headers` 和 `_redirects` 放进产物目录。少了它，缓存策略和跳转规则就不会生效。
+> 因为真实的构建命令是 `hexo generate && node tools/post-build.js`，后半步负责把
+> `_headers` 和 `_redirects` 放进产物目录。
+> **判断方法**：构建日志里应出现 `[post-build] _headers -> public/_headers`。
+
+> 📌 **这个流程没有「构建输出目录」这一栏。**
+> 产物目录由仓库根目录的 `wrangler.jsonc` 里的 `assets.directory` 指定
+> （本项目已配好为 `./public/`，并设置了 `not_found_handling: "404-page"`）。
+> 如果没有这个文件，Cloudflare 会自动识别框架并**给你开一个 Pull Request**，
+> 需要你合并后才会正常部署 —— 所以这个文件必须提交进仓库。
+
+<details>
+<summary><b>旧版 Pages 流程的差异（如果你在 Create 页面里能找到 Pages 标签）</b></summary>
+
+| 配置项 | 填什么 |
+| --- | --- |
+| Production branch | `main` |
+| Framework preset | `Hexo`（没有就选 `None`） |
+| **Build command** | **`npm run build`** |
+| Build output directory | `public` |
+
+Pages 流程有独立的「构建输出目录」输入框，**不读 `wrangler.jsonc`**；
+自定义域名在 **Custom domains** 标签下。功能上两者等价。
+
+</details>
+
+构建完成后会给你一个临时地址，形如 `https://vopth-blog.<你的子域>.workers.dev`。
+**先打开它确认博客能正常显示**，再进行下一步绑域名。
 
 ### 4.3 把域名 DNS 接入 Cloudflare
 
-这是最多人卡住的一步。**Cloudflare Pages 要绑定根域名 `vopth.xyz`，就必须让 Cloudflare 接管这个域名的 DNS。**
+这是最多人卡住的一步。**要绑定根域名 `vopth.xyz`，就必须让 Cloudflare 接管这个域名的 DNS。**
 
 为什么？因为根域名（不带 `www`）在 DNS 协议上**不能用 CNAME 记录**，而阿里云云解析没有 CNAME 拉平（flattening）功能。所以只能把整域 DNS 交给 Cloudflare。
 
@@ -189,9 +228,11 @@ Cloudflare 检测到 NS 生效后会发邮件通知你。
 NS 生效后：
 
 1. 回到 Cloudflare → **Workers & Pages** → 你的 `vopth-blog` 项目
-2. **Custom domains** 标签 → **Set up a custom domain**
-3. 输入 `vopth.xyz` → Continue → **Activate domain**
-4. 重复一次，把 `www.vopth.xyz` 也加上（Cloudflare 会自动配好跳转）
+2. 进入 **Settings / 设置** → **Domains & Routes / 域和路由**
+   （旧版 Pages 界面是顶部的 **Custom domains** 标签）
+3. 点 **Add / 添加** → 选 **Custom domain / 自定义域**
+4. 输入 `vopth.xyz` → **Add domain / 添加域**
+5. 重复一次，把 `www.vopth.xyz` 也加上
 
 Cloudflare 会自动创建 DNS 记录并签发 HTTPS 证书（一般 1～5 分钟）。**你不需要自己申请证书，也不需要配任何服务器。**
 
@@ -206,13 +247,14 @@ Cloudflare 会自动创建 DNS 记录并签发 HTTPS 证书（一般 1～5 分�
 - [ ] 右上角切换到暗色模式，样式没崩
 - [ ] 搜索框能搜到文章
 - [ ] 打开 `https://vopth.xyz/不存在的页面`，能看到自定义 404
+- [ ] 打开 `https://vopth.xyz/feed` 会自动跳到 `/atom.xml`
 - [ ] 按 F12 → Network，刷新首页，**确认没有第三方域名的请求**
 
 ---
 
 ## 五、上线后请立刻改这几处
 
-站点已经按你给的信息填好了（昵称 `vopth`、GitHub `zxy6263`、简介「一个爱瞎折腾IT的爱好者」、邮箱 `3585648116@qq.com`）。**其中邮箱我是按 QQ 号补全的，如果不对请改。**
+站点已经按你给的信息填好了（昵称 `vopth`、GitHub `zxy6263`、简介「一个爱瞎折腾IT的爱好者」、邮箱 `3585648116@qq.com`）。
 
 下面这些是**建议你替换成自己内容**的地方：
 
@@ -357,7 +399,20 @@ sitemap:
 
 ### 构建报 `Node version not supported`
 
-在 Pages 项目的 **Settings → Environment variables** 里加 `NODE_VERSION = 22`。
+在项目的 **Settings → Build / 环境变量** 里加 `NODE_VERSION = 22`。
+
+### 构建报找不到 configuration file / 部署失败
+
+说明 `wrangler.jsonc` 没有被提交进仓库，或者 `assets.directory` 写错了。
+确认仓库根目录有这个文件，且内容是：
+
+```jsonc
+{
+  "name": "vopth-blog",
+  "compatibility_date": "2026-10-02",
+  "assets": { "directory": "./public/" }
+}
+```
 
 ### 页面能打开，但样式全丢 / 图片 404
 
@@ -397,7 +452,7 @@ npx hexo new "my-post"    # 文件名英文
 
 ### 本地访问 `/feed` 是 404，但线上是好的
 
-正常现象。`_headers` 和 `_redirects` 是 **Cloudflare Pages 的功能**，本地的 `npm run server`（Hexo 自带服务器）不认识这两个文件，所以 `/feed`、`/rss` 这类跳转规则只在线上生效。
+正常现象。`_headers` 和 `_redirects` 是 **Cloudflare 的功能**，本地的 `npm run server`（Hexo 自带服务器）不认识这两个文件，所以 `/feed`、`/rss` 这类跳转规则只在线上生效。
 
 想本地确认规则内容，直接看根目录的 `_redirects` 文件；想确认它有没有进构建产物：
 
@@ -408,13 +463,13 @@ cat public/_redirects     # Windows 用 type public\_redirects
 
 ### 想回滚到上一个版本
 
-Cloudflare → 你的 Pages 项目 → **Deployments** 列表 → 找到历史版本 → 点 **Rollback**。不用改代码。
+Cloudflare → **Workers & Pages** → 你的项目 → **Deployments / 部署** 列表 → 找到历史版本 → 点 **Rollback / 回滚**。不用改代码。
 
 ### 更新了文章但线上还是旧的
 
 - Cloudflare 有 CDN 缓存，HTML 我们设了 `must-revalidate`，正常刷新就应该是新的
 - 强制刷新：`Ctrl + F5`（或 `Cmd + Shift + R`）
-- 确认 push 的分支是 `main`（Pages 只监听 Production branch）
+- 确认 push 的分支是生产分支（默认 `main`）
 
 ### 本地构建产物想清掉重来
 
@@ -429,14 +484,17 @@ npm run clean && npm run build
 | 项目 | 费用 |
 | --- | --- |
 | 域名 `vopth.xyz` | 约 ¥10～70/年（`.xyz` 首年常有优惠，续费价看注册商） |
-| Cloudflare Pages | **0** |
+| Cloudflare 静态资源托管 | **0** |
 | HTTPS 证书 | **0** |
-| 带宽流量 | **0**（免费套餐不限量） |
+| 带宽流量 | **0**（静态请求不计费、不限量） |
 | 服务器 | 不存在 |
 | 评论系统（giscus） | **0** |
 | 访问统计 | **0** |
 
 **一年下来就是域名钱。**
+
+> **为什么静态请求不计费？** 我们的 Worker 没有 `main` 脚本，是纯静态资源。
+> Cloudflare 只有在「Worker 脚本被调用」时才计费，而纯静态资源不经过脚本。
 
 ### 一个需要知道的坑：`.xyz` 后缀
 
@@ -452,7 +510,11 @@ npm run clean && npm run build
 
 - [Hexo 官方文档](https://hexo.io/zh-cn/docs/)
 - [Butterfly 主题文档](https://butterfly.js.org/)（配置项查询第一去处）
-- [Cloudflare Pages 文档](https://developers.cloudflare.com/pages/)
+- [Cloudflare Workers 静态资源](https://developers.cloudflare.com/workers/static-assets/)
+- [Workers 静态资源 `_headers`](https://developers.cloudflare.com/workers/static-assets/headers/)
+- [Workers 静态资源 `_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/)
+- [Workers 自定义 404 页面](https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/)
+- [Workers Builds 构建配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
 - [giscus](https://giscus.app/zh-CN)
 - 主题完整默认配置：`node_modules/hexo-theme-butterfly/_config.yml`
   （`_config.butterfly.yml` 是**覆盖式**的，只写了要改的项，其余自动沿用默认值）
