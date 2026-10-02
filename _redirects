@@ -1,0 +1,24 @@
+# ===========================================================================
+#  Cloudflare Pages 重定向 / 改写规则
+#  Docs: https://developers.cloudflare.com/pages/configuration/redirects/
+#
+#  说明：Hexo 不会自动复制以 _ 开头的文件，所以 scripts/cloudflare.js
+#  会在构建结束后把本文件复制到 public/ 下。
+#
+#  语法：  /旧路径  /新路径  [状态码]
+#  状态码：301 永久重定向 / 302 临时重定向 / 200 改写（地址栏不变）
+# ===========================================================================
+
+# 下面两条只是示例，需要时把 # 去掉即可：
+
+# 换过域名的话，把老地址整体跳过来
+# /old-post/            /2026/10/03/hello-vopth/   301
+
+# 给友链页做个短链
+# /links                /link/                     301
+
+# 给 RSS 做个更常见的入口
+/feed                   /atom.xml                 301
+/feed.xml               /atom.xml                 301
+/rss                    /atom.xml                 301
+/rss.xml                /atom.xml                 301

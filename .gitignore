@@ -1,0 +1,24 @@
+# ---- 依赖 ----
+node_modules/
+package-lock.json.bak
+
+# ---- Hexo 生成物 ----
+public/
+db.json
+.deploy_git/
+.deploy*/
+*.log
+tsconfig.json
+
+# ---- 编辑器 / 系统 ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+*.swp
+
+# ---- 本地环境 ----
+.env
+.env.local
+.wrangler/

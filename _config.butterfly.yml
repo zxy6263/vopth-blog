@@ -1,0 +1,348 @@
+# ===========================================================================
+#  Butterfly 主题配置（覆盖式）
+# ---------------------------------------------------------------------------
+#  这里只写「要覆盖的项」，没写的自动沿用主题默认值。
+#  原理：Hexo 会把本文件与主题自带配置做深合并（deepMerge），本文件优先。
+#  主题完整默认值在：node_modules/hexo-theme-butterfly/_config.yml
+#  Butterfly 官方文档：https://butterfly.js.org/
+# ===========================================================================
+
+# ------------------------------------------------------------------ 导航栏
+nav:
+  logo: /img/logo.svg
+  display_title: true
+  display_post_title: true # 进文章页时导航栏显示文章标题
+  fixed: true # 滚动时导航栏固定在顶部
+
+# 导航菜单：  显示名: 路径 || 图标
+menu:
+  首页: / || fas fa-home
+  关于: /about/ || fas fa-user
+  归档: /archives/ || fas fa-archive
+  分类: /categories/ || fas fa-folder-open
+  标签: /tags/ || fas fa-tags
+  友链: /link/ || fas fa-link
+
+# ------------------------------------------------------------------ 左侧社交按钮
+social:
+  fab fa-github: https://github.com/zxy6263 || Github || '#24292e'
+  fas fa-envelope: mailto:3585648116@qq.com || Email || '#4a7dbe'
+  fas fa-rss: /atom.xml || RSS || '#f26522'
+
+# ------------------------------------------------------------------ 站点图标 / 头像
+favicon: /img/favicon.svg
+
+avatar:
+  img: /img/avatar.svg # 想换成真人照片：把照片放到 source/img/ 再改这里
+  effect: true # 鼠标悬停转一圈
+
+# ------------------------------------------------------------------ 顶部大图（首页 banner）
+disable_top_img: false
+default_top_img: /img/banner-page.svg # 其他页面的默认顶部图
+index_img: /img/banner-home.svg # 首页顶部图
+archive_img: /img/banner-page.svg
+tag_img: /img/banner-page.svg
+category_img: /img/banner-page.svg
+footer_img: false # 页脚不加背景图，保持干净
+
+# 文章封面（不单独设置时随机用下面这几张）
+cover:
+  index_enable: true
+  aside_enable: true
+  archives_enable: true
+  default_cover:
+    - /img/cover-1.svg
+    - /img/cover-2.svg
+    - /img/cover-3.svg
+
+# 图片加载失败时的兜底图（指向本地文件，避免额外 404）
+error_img:
+  flink: /img/avatar.svg
+  post_page: /img/banner-page.svg
+
+# 404 页面（Cloudflare Pages 会自动使用构建出的 404.html）
+error_404:
+  enable: true
+  subtitle: '这个页面走丢了'
+  background: /img/banner-home.svg
+
+# ------------------------------------------------------------------ 首页内容
+# 首页副标题打字机效果
+subtitle:
+  enable: true
+  effect: true
+  source: false # 不调用第三方一言 API，避免外链
+  sub:
+    - '一个爱瞎折腾IT的爱好者'
+    - '写代码，也写生活'
+    - '把踩过的坑都记下来'
+
+# 首页文章布局：3 = 封面与信息左右交替（观感最活泼）
+index_layout: 3
+
+# 首页文章摘要：2 = 有 description 用 description，否则自动截取
+index_post_content:
+  method: 2
+  length: 200
+
+# ------------------------------------------------------------------ 文章页
+toc:
+  post: true
+  page: false
+  number: true
+  expand: false
+  style_simple: false
+  scroll_percent: true
+
+post_copyright:
+  enable: true
+  decode: false
+  author_href: https://github.com/zxy6263
+  license: CC BY-NC-SA 4.0
+  license_url: https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+related_post:
+  enable: true
+  limit: 6
+  date_type: created
+
+# 1 = 下一篇指向更旧的文章
+post_pagination: 1
+
+# 文章超过一年未更新时提示
+noticeOutdate:
+  enable: true
+  style: flat
+  limit_day: 365
+  position: top
+  message_prev: '本文最后更新于'
+  message_next: '天前，内容可能已经过时，如有错误欢迎指正。'
+
+# ------------------------------------------------------------------ 页脚
+footer:
+  owner:
+    enable: true
+    since: 2026
+  copyright:
+    enable: true
+    version: true
+  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://pages.cloudflare.com" target="_blank" rel="noopener">Cloudflare Pages</a>'
+
+# ------------------------------------------------------------------ 侧边栏
+aside:
+  enable: true
+  hide: false
+  button: true
+  mobile: true
+  position: right
+  display:
+    archive: true
+    tag: true
+    category: true
+
+  # 作者卡片
+  card_author:
+    enable: true
+    description: 一个爱瞎折腾IT的爱好者
+    button:
+      enable: true
+      icon: fab fa-github
+      text: 关注我
+      link: https://github.com/zxy6263
+
+  # 公告卡
+  card_announcement:
+    enable: true
+    content: '这里记录我的技术笔记和折腾日常。<br>欢迎通过 <a href="mailto:3585648116@qq.com">邮件</a> 或 <a href="https://github.com/zxy6263" target="_blank" rel="noopener">GitHub</a> 找我聊天。'
+
+  card_recent_post:
+    enable: true
+    limit: 5
+    sort: date
+
+  card_newest_comments:
+    enable: false # 没接评论系统，关掉
+
+  card_categories:
+    enable: true
+    limit: 8
+    expand: none
+
+  card_tags:
+    enable: true
+    limit: 40
+    color: true
+    orderby: random
+    order: 1
+
+  card_archives:
+    enable: true
+    type: monthly
+    format: YYYY年MM月
+    order: -1
+    limit: 8
+
+  card_post_series:
+    enable: true
+
+  card_webinfo:
+    enable: true
+    post_count: true
+    last_push_date: true
+    runtime_date: 2026/10/03 00:00:00 # 站点「运行时长」的起算时间
+
+# ------------------------------------------------------------------ 右下角按钮
+readmode: true # 阅读模式
+darkmode:
+  enable: true
+  button: true
+  autoChangeMode: false # 不跟随系统，手动切换
+rightside_scroll_percent: true # 滚动进度显示在回到顶部按钮上
+
+# ------------------------------------------------------------------ 全局细节
+anchor:
+  auto_update: true # 滚动时地址栏跟随标题变化，方便分享具体小节
+  click_to_scroll: true
+
+photofigcaption: true
+
+copy:
+  enable: true
+  copyright:
+    enable: true # 复制正文时自动附上出处
+    limit_count: 150
+
+# 字数统计（依赖 hexo-wordcount，已安装）
+wordcount:
+  enable: true
+  post_wordcount: true
+  min2read: true
+  total_wordcount: true
+
+# 不蒜子访问统计：官方服务近年不稳定，默认全关。
+# 想要页脚显示 PV/UV，把下面三个改成 true 即可（会引入一次第三方请求）。
+busuanzi:
+  site_uv: false
+  site_pv: false
+  page_pv: false
+
+# ------------------------------------------------------------------ 搜索
+search:
+  use: local_search
+  placeholder: '搜索文章…'
+  local_search:
+    preload: true # 站点小，直接预加载 search.xml，搜索秒开
+    top_n_per_article: 1
+    unescape: false
+    pagination:
+      enable: false
+
+# ------------------------------------------------------------------ 分享
+share:
+  use: sharejs
+  sharejs:
+    sites: wechat,weibo,qq
+
+# ------------------------------------------------------------------ 评论
+# 留空 = 不显示评论区。要开启请看 README「可选：开启评论」，
+# 用 giscus（基于 GitHub Discussions，完全免费、无需服务器）。
+comments:
+  use:
+  text: true
+  lazyload: true
+  count: false
+  card_post_count: false
+
+# giscus 参数已按你的仓库预填，只差 repo_id / category_id
+# 到 https://giscus.app/ 输入仓库名即可拿到这两个值
+giscus:
+  repo: zxy6263/vopth-blog
+  repo_id:
+  category_id:
+  light_theme: light
+  dark_theme: dark
+
+# ------------------------------------------------------------------ 统计
+# 推荐用 Cloudflare Web Analytics：免费、无 Cookie、就在你部署的平台上
+# 到 Cloudflare Dashboard → Analytics → Web Analytics 建站点，把 token 填这里
+cloudflare_analytics:
+# 可选：百度统计 ID
+baidu_analytics:
+
+# ------------------------------------------------------------------ 外观
+# 主题色（值必须用双引号包起来）
+theme_color:
+  enable: true
+  main: '#4A6CF7'
+  paginator: '#00C4B6'
+  button_hover: '#FF7242'
+  text_selection: '#00C4B6'
+  link_color: '#4A6CF7'
+  meta_color: '#858585'
+  hr_color: '#A4D8FA'
+  code_foreground: '#F47466'
+  code_background: 'rgba(27, 31, 35, .05)'
+  toc_color: '#00C4B6'
+  blockquote_padding_color: '#4A6CF7'
+  blockquote_background_color: '#4A6CF7'
+  scrollbar_color: '#4A6CF7'
+  meta_theme_color_light: '#ffffff'
+  meta_theme_color_dark: '#0d0d0d'
+
+category_ui: index # 分类页用首页那种卡片布局
+tag_ui: index
+rounded_corners_ui: true
+text_align_justify: false
+mask:
+  header: true
+  footer: true
+
+preloader:
+  enable: false # 关掉全屏加载动画，首屏更快
+enter_transitions: true # 页面切换淡入
+
+display_mode: light
+activate_power_mode:
+  enable: false
+
+# ------------------------------------------------------------------ 图片与提速
+lightbox: medium_zoom # 点击图片放大
+
+lazyload:
+  enable: true
+  native: true # 用浏览器原生 loading="lazy"，不再引第三方库
+  field: site
+  blur: false
+
+instantpage: true # 鼠标悬停链接时预取，点开几乎瞬间
+pjax:
+  enable: false # PJAX 与第三方脚本容易冲突，保持关闭更稳
+
+# ------------------------------------------------------------------ SEO
+Open_Graph_meta:
+  enable: true
+
+structured_data:
+  enable: true
+
+# 站长平台验证（拿到验证码后取消注释）
+site_verification:
+  # - name: google-site-verification
+  #   content: xxxxxxxx
+  # - name: baidu-site-verification
+  #   content: xxxxxxxx
+
+# ------------------------------------------------------------------ 资源 CDN
+# 全部走 local：字体图标、打字机、灯箱、分享按钮等都由你自己的站点提供，
+# 不依赖 jsDelivr / unpkg（这两个在国内经常被墙或抽风）。
+CDN:
+  internal_provider: local
+  third_party_provider: local
+  version: true
+
+# ------------------------------------------------------------------ 自定义注入
+inject:
+  head:
+    - '<link rel="stylesheet" href="/css/custom.css">'
+  bottom:
+    - '<script src="/js/profile-hero.js" defer></script>'

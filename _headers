@@ -1,0 +1,24 @@
+# ===========================================================================
+#  Cloudflare Pages 响应头配置
+#  Docs: https://developers.cloudflare.com/pages/configuration/headers/
+#
+#  说明：Hexo 不会自动复制以 _ 开头的文件，所以 scripts/cloudflare.js
+#  会在构建结束后把本文件复制到 public/ 下。
+# ===========================================================================
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# 图片、字体这类基本不变的内容，缓存一周
+/img/*
+  Cache-Control: public, max-age=604800
+
+/pluginsSrc/*
+  Cache-Control: public, max-age=2592000
+
+# HTML 永远回源校验，保证一发文章就能看到
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate

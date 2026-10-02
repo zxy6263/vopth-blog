@@ -1,0 +1,26 @@
+- class_name: 建站路上离不开的
+  class_desc: 这个博客能跑起来，靠的就是这几个
+  link_list:
+    - name: Hexo
+      link: https://hexo.io
+      avatar: /img/cover-1.svg
+      descr: 快速、简洁且高效的博客框架
+    - name: Butterfly
+      link: https://butterfly.js.org/
+      avatar: /img/cover-3.svg
+      descr: 本站使用的主题，文档写得很清楚
+    - name: Cloudflare Pages
+      link: https://pages.cloudflare.com/
+      avatar: /img/cover-2.svg
+      descr: 免费静态托管，本站就跑在上面
+
+- class_name: 我的朋友们
+  class_desc: 位置给你留着，发封邮件就能加上
+  # 注意：link_list 不能留空，否则主题模板遍历 null 会报错
+  link_list: []
+  # 加友链时把上面那行 [] 换成下面这种结构：
+  # link_list:
+  #   - name: 对方的名字
+  #     link: https://example.com
+  #     avatar: https://example.com/avatar.png
+  #     descr: 一句话介绍

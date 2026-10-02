@@ -1,0 +1,293 @@
+/* ===========================================================================
+ *  Vopth 博客自定义样式
+ *  加载方式：_config.butterfly.yml → inject.head
+ *
+ *  全部使用 Butterfly 自带的 CSS 变量（--card-bg / --font-color / --card-meta
+ *  / --card-box-shadow 等），所以亮色与暗色模式会自动适配，不用写两套。
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ *  1. 首页个人简介卡片
+ *  由 source/js/profile-hero.js 插入到 #recent-posts 的第一个位置
+ * ------------------------------------------------------------------------- */
+.ph-card {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 20px;
+  align-items: center;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: var(--card-box-shadow);
+  transition: box-shadow 0.3s;
+}
+
+.ph-card:hover {
+  box-shadow: var(--card-hover-box-shadow);
+}
+
+.ph-avatar {
+  flex: 0 0 auto;
+  line-height: 0;
+}
+
+.ph-avatar img {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 4px rgba(74, 108, 247, 0.18);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ph-card:hover .ph-avatar img {
+  transform: rotate(360deg);
+}
+
+.ph-body {
+  min-width: 0;
+}
+
+.ph-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--font-color);
+}
+
+.ph-badge {
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #fff;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4a6cf7, #7c5cff);
+}
+
+.ph-bio {
+  margin: 8px 0 14px;
+  font-size: 0.94rem;
+  line-height: 1.85;
+  color: var(--card-meta);
+}
+
+.ph-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ph-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.86rem;
+  border-radius: 999px;
+  color: var(--font-color);
+  background: var(--text-bg-hover);
+  transition: all 0.3s;
+}
+
+.ph-links a:hover {
+  color: #fff;
+  background: #4a6cf7;
+  transform: translateY(-2px);
+}
+
+.ph-links a i {
+  font-size: 0.95em;
+}
+
+@media screen and (max-width: 768px) {
+  .ph-card {
+    flex-direction: column;
+    padding: 20px 18px;
+    text-align: center;
+  }
+
+  .ph-name,
+  .ph-links {
+    justify-content: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ *  2. 细节打磨（都很克制，只调观感不动布局）
+ * ------------------------------------------------------------------------- */
+
+/* 首页 banner 的站点标题更有分量 */
+#page-header #site-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#page-header #site-subtitle {
+  font-weight: 400;
+  opacity: 0.95;
+}
+
+/* 文章卡片 / 侧边栏卡片圆角统一 */
+.recent-post-item,
+#aside-content .card-widget {
+  border-radius: 12px;
+}
+
+/* 正文里的链接：下划线稍微离开文字，更好认 */
+#article-container a {
+  text-underline-offset: 3px;
+}
+
+/* 代码块与引用块圆角 */
+#article-container figure.highlight,
+#article-container pre,
+#article-container blockquote {
+  border-radius: 8px;
+}
+
+#article-container blockquote {
+  border-radius: 0 8px 8px 0;
+}
+
+/* 标签云用胶囊样式 */
+#aside-content .card-tag-cloud a {
+  border-radius: 999px;
+}
+
+/* 目录卡片在暗色下更清楚 */
+#card-toc .toc-link.active {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ *  3. 关于页 / 个人主页（/about/）
+ * ------------------------------------------------------------------------- */
+.about-hero {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 26px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(74, 108, 247, 0.1), rgba(124, 92, 255, 0.1));
+  border: 1px solid rgba(74, 108, 247, 0.18);
+}
+
+.about-avatar {
+  flex: 0 0 auto;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(74, 108, 247, 0.15);
+}
+
+.about-name {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  color: var(--font-color);
+}
+
+.about-tagline {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: #4a6cf7;
+}
+
+.about-desc {
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  line-height: 1.9;
+  color: var(--card-meta);
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.about-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  font-size: 0.86rem;
+  border-radius: 999px;
+  color: var(--font-color);
+  background: var(--text-bg-hover);
+  transition: all 0.3s;
+}
+
+.about-links a:hover {
+  color: #fff;
+  background: #4a6cf7;
+  transform: translateY(-2px);
+}
+
+.about-skills {
+  margin: 6px 0 18px;
+}
+
+.about-skill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.about-skill span {
+  flex: 0 0 190px;
+  font-size: 0.9rem;
+  color: var(--font-color);
+}
+
+/* 用 i 元素当进度条，宽度由内联 --w 决定 */
+.about-skill i {
+  position: relative;
+  flex: 1 1 auto;
+  height: 8px;
+  font-style: normal;
+  border-radius: 999px;
+  background: var(--text-bg-hover);
+  overflow: hidden;
+}
+
+.about-skill i::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--w, 50%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4a6cf7, #7c5cff);
+}
+
+@media screen and (max-width: 768px) {
+  .about-hero {
+    flex-direction: column;
+    padding: 20px 18px;
+    text-align: center;
+  }
+
+  .about-avatar {
+    width: 88px;
+    height: 88px;
+  }
+
+  .about-links {
+    justify-content: center;
+  }
+
+  .about-skill span {
+    flex: 0 0 118px;
+    font-size: 0.82rem;
+  }
+}

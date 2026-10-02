@@ -1,0 +1,38 @@
+{
+  "name": "vopth-blog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "vopth.xyz — 个人主页与博客，Hexo + Butterfly，部署于 Cloudflare Pages",
+  "scripts": {
+    "clean": "hexo clean",
+    "build": "hexo generate && node tools/post-build.js",
+    "server": "hexo server",
+    "dev": "hexo server --draft",
+    "new": "hexo new",
+    "deploy": "hexo deploy"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "hexo": {
+    "version": "8.1.2"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "hexo": "^8.1.2",
+    "hexo-butterfly-extjs": "^1.5.8",
+    "hexo-generator-archive": "^2.0.0",
+    "hexo-generator-category": "^2.0.0",
+    "hexo-generator-feed": "^4.0.0",
+    "hexo-generator-index": "^4.0.0",
+    "hexo-generator-searchdb": "^1.5.0",
+    "hexo-generator-tag": "^2.0.0",
+    "hexo-renderer-ejs": "^2.0.0",
+    "hexo-renderer-marked": "^7.0.1",
+    "hexo-renderer-pug": "^3.0.0",
+    "hexo-renderer-stylus": "^3.0.1",
+    "hexo-server": "^3.0.0",
+    "hexo-theme-butterfly": "^5.7.0",
+    "hexo-wordcount": "^6.0.1"
+  }
+}

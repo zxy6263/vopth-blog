@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 700" preserveAspectRatio="xMidYMid slice" role="img" aria-label="banner">
+  <defs>
+    <linearGradient id="bp" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0" stop-color="#111C3A"/>
+      <stop offset="0.6" stop-color="#27346F"/>
+      <stop offset="1" stop-color="#5C6FE0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#00C4B6" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#00C4B6" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="gridp" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0 H0 V64" fill="none" stroke="#ffffff" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="700" fill="url(#bp)"/>
+  <rect width="1600" height="700" fill="url(#gridp)"/>
+  <circle cx="1380" cy="140" r="360" fill="url(#glow)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="2">
+    <path d="M-40 560 Q 400 420 820 540 T 1700 470"/>
+    <path d="M-40 630 Q 400 490 820 610 T 1700 540"/>
+  </g>
+</svg>

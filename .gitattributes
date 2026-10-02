@@ -1,0 +1,20 @@
+# 统一换行符为 LF，避免 Windows 的 CRLF 转换污染仓库
+# （Cloudflare Pages 的构建机是 Linux，本地是 Windows，不固定的话每次提交都会产生
+#   大量「整文件改动」的假 diff）
+* text=auto eol=lf
+
+# 明确标记二进制文件，禁止任何换行符处理
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+
+# 这两个文件是给 Cloudflare Pages 读的，必须保持 LF
+_headers   text eol=lf
+_redirects text eol=lf

@@ -1,0 +1,101 @@
+# ===========================================================================
+#  Hexo 主配置  —  vopth.xyz
+#  说明：本文件只放「站点级」设置；主题外观相关全部在 _config.butterfly.yml
+# ===========================================================================
+
+# ------------------------------------------------------------------ 站点信息
+title: Vopth
+subtitle: '写代码，也写生活'
+description: 'Vopth 的个人主页与技术博客 —— 记录编程、折腾与日常。'
+keywords: 'Vopth,个人博客,技术博客,编程笔记'
+author: Vopth
+language: zh-CN
+timezone: 'Asia/Shanghai'
+
+# ------------------------------------------------------------------ 网址设置
+# url 必须写成你的正式域名，Cloudflare Pages 需要在 Travis/构建时保持绝对路径正确
+url: https://vopth.xyz
+# 若部署在子目录（如 https://example.com/blog）才需要改，根域名保持 /
+root: /
+permalink: :year/:month/:day/:title/
+permalink_defaults:
+pretty_urls:
+  trailing_index: false # 去掉 URL 末尾的 index.html
+  trailing_html: false # 去掉 URL 末尾的 .html
+
+# ------------------------------------------------------------------ 目录结构
+source_dir: source
+public_dir: public
+tag_dir: tags
+archive_dir: archives
+category_dir: categories
+code_dir: downloads/code
+i18n_dir: :lang
+skip_render:
+
+# ------------------------------------------------------------------ 写作
+new_post_name: :title.md # 新文章文件名
+default_layout: post
+titlecase: false
+external_link:
+  enable: true
+  field: site
+  exclude: ''
+filename_case: 0
+render_drafts: false
+post_asset_folder: true # 每篇文章一个同名资源文件夹，方便放图片
+relative_link: false
+future: true
+# 文章里用 [toc] / <!-- more --> 控制摘要，Butterfly 主题会自动生成目录
+
+# ------------------------------------------------------------------ 分类 & 标签
+default_category: uncategorized
+category_map:
+tag_map:
+
+# ------------------------------------------------------------------ 元数据
+meta_generator: true
+
+# ------------------------------------------------------------------ 日期 / 时间
+date_format: YYYY-MM-DD
+time_format: HH:mm:ss
+updated_option: 'mtime' # 用文件修改时间作为「最后更新」
+
+# ------------------------------------------------------------------ 分页
+per_page: 10
+pagination_dir: page
+
+# ------------------------------------------------------------------ 语法高亮
+# Butterfly 主题自带代码高亮（highlight.js / prismjs），
+# 所以这里把 Hexo 自带的两个高亮器都关掉，避免双重包裹。
+highlight:
+  enable: false
+  line_number: true
+  auto_detect: false
+  tab_replace: ''
+  wrap: true
+  hljs: false
+prismjs:
+  enable: false
+  preprocess: true
+  line_number: true
+  tab_replace: ''
+
+# ------------------------------------------------------------------ 搜索
+# 供 Butterfly 的本地搜索（local_search）生成 search.xml
+search:
+  path: search.xml
+  field: post
+  content: true
+  format: html
+
+# ------------------------------------------------------------------ 主题
+theme: butterfly
+
+# ------------------------------------------------------------------ 部署（备用方案）
+# 主推方案是 Cloudflare Pages 直接连 GitHub 仓库，无需 deploy 配置。
+# 如果你想用 hexo deploy 推送到 Cloudflare，取消下面注释并 npm i hexo-deployer-git
+# deploy:
+#   type: git
+#   repo: git@github.com:你的用户名/vopth-blog.git
+#   branch: main
