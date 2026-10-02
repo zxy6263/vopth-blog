@@ -59,15 +59,21 @@ tag_img: /videos/banner-1-poster.jpg
 category_img: /videos/banner-1-poster.jpg
 footer_img: false # 页脚不加背景图，保持干净
 
-# 文章封面（不单独设置时随机用下面这几张）
+# 文章封面
+# 现在所有文章统一用这张（从壁纸视频里截的一帧）。
+#
+# 以后想给某篇文章单独换封面，两种方式：
+#   1. 把图放进 source/img/covers/，文件名和文章文件名一样 -> 自动生效
+#      （见 scripts/post-cover.js，优先级高于这里的默认值）
+#   2. 在该文章 front-matter 写 cover: /img/xxx.jpg
+#
+# 注意：cover-1/2/3.svg 不要删 —— 友链页还在用它们当好友头像。
 cover:
   index_enable: true
   aside_enable: true
   archives_enable: true
   default_cover:
-    - /img/cover-1.svg
-    - /img/cover-2.svg
-    - /img/cover-3.svg
+    - /img/covers/default.jpg
 
 # 图片加载失败时的兜底图（指向本地文件，避免额外 404）
 error_img:
