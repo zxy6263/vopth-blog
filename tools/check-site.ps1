@@ -129,6 +129,9 @@ $endpoints = @(
     @{ Path = '/img/hero.jpg';                     Name = 'home hero image' },
     @{ Path = '/img/banner-home.svg';              Name = '404 banner (svg)' },
     @{ Path = '/img/favicon.svg';                  Name = 'favicon' },
+    @{ Path = '/js/banner-video.js';               Name = 'banner-video.js (about)' },
+    @{ Path = '/videos/about-banner.mp4';          Name = 'about banner video' },
+    @{ Path = '/videos/about-banner-poster.jpg';   Name = 'about banner poster' },
     @{ Path = '/sitemap.xml';                      Name = 'sitemap (SEO)' },
     @{ Path = '/robots.txt';                       Name = 'robots.txt (SEO)' }
 )

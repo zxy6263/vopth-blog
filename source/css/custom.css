@@ -123,17 +123,27 @@
  *  2. 细节打磨（都很克制，只调观感不动布局）
  * ------------------------------------------------------------------------- */
 
-/* 首页 banner 的站点标题更有分量 */
-#page-header #site-title {
-  /* 主题默认 2.85em（约 40px），在全屏 banner 上偏小，这里放大到约 62px。
-     用 em 而不是 px：会跟随主题的基础字号一起缩放，用户放大字体时也会跟着变。 */
+/* ---------------------------------------------------------------------------
+ *  banner 上的站点标题 / 页面标题
+ *
+ *  注意：#site-title 在【两类页面】上都会出现 ——
+ *    - 首页 banner（全屏 100vh）      -> header 的 class 含 .full_page
+ *    - 内页 banner（关于页等，400px） -> header 的 class 含 .not-home-page
+ *    - 文章页 banner（400px）         -> header 的 class 含 .post-bg
+ *  两者尺寸需求差很多，所以必须分别设置。
+ *  只写 #page-header #site-title 一个选择器，会把首页的大字号带到内页上。
+ * ------------------------------------------------------------------------- */
+
+/* 首页（全屏 banner）：主题默认 2.85em（约 40px），放大到约 62px。
+   用 em 而不是 px：会跟随主题基础字号一起缩放，用户放大字体时也跟着变。 */
+#page-header.full_page #site-title {
   font-size: 4.4em;
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.15;
 }
 
-#page-header #site-subtitle {
+#page-header.full_page #site-subtitle {
   /* 主题默认 1.72em（约 24px）→ 约 32px
      注意：这里【只给容器】设字号。#subtitle 是它的子元素，
      如果再给 #subtitle 写一次 em，会变成 2.3 × 2.3 的复合效果（约 74px）而爆掉。 */
@@ -142,9 +152,17 @@
   opacity: 0.95;
 }
 
-/* banner 现在用的是照片，画面偏亮（大面积白色天空）。
-   白色文字压在亮背景上对比度不够，加一层文字阴影保证可读性。
-   text-shadow 是【继承属性】，设在外层容器上，内部的 #subtitle 会自动继承，
+/* 内页 / 文章页（400px 高的 banner）：适度放大到约 36px，不照搬首页尺寸 */
+#page-header.not-home-page #site-title,
+#page-header.post-bg #site-title {
+  font-size: 2.6em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* banner 背景是照片和视频，画面偏亮。
+   白色文字压在亮背景上对比度不够，加文字阴影保证可读性。
+   text-shadow 是【继承属性】，设在外层容器上，内部元素会自动继承，
    不需要（也绝不应该）再写一遍。 */
 #page-header #site-title,
 #page-header #site-subtitle {
@@ -155,12 +173,17 @@
    必须自己写：上面的选择器用了两个 id，优先级高于主题的移动端规则，
    不覆盖的话手机上会一直用桌面的大字号。 */
 @media screen and (max-width: 768px) {
-  #page-header #site-title {
+  #page-header.full_page #site-title {
     font-size: 2.6em;
   }
 
-  #page-header #site-subtitle {
+  #page-header.full_page #site-subtitle {
     font-size: 1.5em;
+  }
+
+  #page-header.not-home-page #site-title,
+  #page-header.post-bg #site-title {
+    font-size: 1.9em;
   }
 }
 
@@ -496,4 +519,43 @@
   #article-container .subscribe-copy button {
     padding: 12px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ *  8. 视频 banner（关于页）
+ *
+ *  注入逻辑见 source/js/banner-video.js。这里只负责「铺满 + 层级」。
+ *
+ *  层级关系（已逐条核实过主题 CSS）：
+ *    - #nav 是 position:fixed + z-index:91 —— 天生在最上层，不需要处理；
+ *    - header 自身的背景（海报图）在最底，作为视频加载前的占位；
+ *    - 视频 z-index:0 压在海报图之上；
+ *    - 主题的遮罩 ::before【默认没有 z-index】，会排在视频下面 ——
+ *      必须显式提到 1，否则视频会把遮罩盖掉，白色标题压在亮画面上就看不清了；
+ *    - 页面标题 #page-site-info 是 absolute 且无 z-index，要提到 2 才在遮罩之上。
+ *
+ *  这两者本来就已经定位，加 z-index 只影响绘制顺序，不会改变它们的位置。
+ * ------------------------------------------------------------------------- */
+#page-header.has-video-banner {
+  overflow: hidden;
+}
+
+#page-header.has-video-banner .banner-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 保持比例铺满，超出部分裁掉 */
+  z-index: 0;
+  pointer-events: none; /* 不拦截鼠标，避免挡住导航栏的点击 */
+}
+
+#page-header.has-video-banner:not(.not-top-img)::before {
+  z-index: 1;
+  background-color: rgba(0, 0, 0, 0.42);
+}
+
+#page-header.has-video-banner #page-site-info {
+  z-index: 2;
 }

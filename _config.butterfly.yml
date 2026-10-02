@@ -363,3 +363,4 @@ inject:
     - '<link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">'
   bottom:
     - '<script src="/js/profile-hero.js" defer></script>'
+    - '<script src="/js/banner-video.js" defer></script>'

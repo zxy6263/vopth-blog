@@ -3,6 +3,10 @@ title: 关于我
 date: 2026-10-03 00:00:00
 updated: 2026-10-03 00:00:00
 type: about
+# banner 用视频（由 source/js/banner-video.js 注入）。
+# 这里指向视频的一帧作为「海报图」：JS 没跑或视频加载失败时，
+# 看到的是这张静态图，而不是黑块。
+top_img: /videos/about-banner-poster.jpg
 comments: false
 toc: false
 ---
