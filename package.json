@@ -10,6 +10,7 @@
     "dev": "hexo server --draft",
     "new": "hexo new",
     "new-post": "node tools/new-post.js",
+    "del-post": "node tools/del-post.js",
     "deploy": "hexo deploy"
   },
   "engines": {

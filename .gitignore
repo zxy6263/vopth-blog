@@ -22,3 +22,7 @@ Thumbs.db
 .env
 .env.local
 .wrangler/
+
+# Windows 快捷方式（本地文件，不进仓库）
+*.lnk
+

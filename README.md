@@ -77,9 +77,11 @@ vopth-blog/
 │   └── videos/                 # 视频 banner 及其海报图
 │
 ├── 发文章.cmd                  # ★双击它就能发文章（一键发帖入口）
+├── 删文章.cmd                  # ★双击它就能删文章（含封面/资源文件夹清理 + 301 提醒）
 │
 ├── tools/
-│   ├── new-post.js             # ★一键发文章脚本（发文章.cmd 和 npm run new-post 都调它）
+│   ├── new-post.js             # 一键发文章脚本（发文章.cmd / npm run new-post 都调它）
+│   ├── del-post.js             # 删除文章脚本（删文章.cmd / npm run del-post 都调它）
 │   ├── post-build.js           # 构建收尾：把 _headers/_redirects 放进 public/
 │   ├── check-site.ps1          # 部署后验收脚本（48 项检查）
 │   └── compress-banner-video.ps1  # 把手机/壁纸站下的大视频压成适合做 banner 的 mp4
@@ -415,6 +417,60 @@ INFO  Post cover auto-assigned: my-first-post -> /img/covers/my-first-post.jpg
 > 实现见 `scripts/post-cover.js`；目录里还有一份说明
 > `source/img/covers/_README.md`（以 `_` 开头，**不会被发布到网站上** ——
 > 这利用了 Hexo 会忽略 `source/` 下所有 `_` 开头文件的特性）。
+
+### 删除文章
+
+```bash
+npm run del-post
+```
+
+或者**双击仓库根目录的 `删文章.cmd`**。
+
+它会：
+
+1. **列出所有文章**（标题 + 文件名 + 日期），让你输入序号选
+2. **显示将要删除的全部文件** —— 不只是文章本身，还有：
+   - 它的专属封面 `source/img/covers/<文件名>.<扩展名>`
+   - 它的资源文件夹 `source/_posts/<文件名>/`（用 `hexo new` 建的文章才有）
+3. **要求确认**（删除不可逆）
+4. 删除 → 构建 → **校验旧页面真的被清除了**
+5. **主动问你要不要加 301 跳转**（见下）
+6. `git commit` + `git push`
+
+> **为什么需要这个脚本**：手动删很容易漏 ——
+> 漏删封面会留一张没人用的孤儿图，漏删资源文件夹会留一整个空目录。
+> 这两样都**不报错**，只是悄悄留在仓库里越积越多。
+
+**只列出、不删除：**
+
+```bash
+npm run del-post -- --list
+```
+
+**非交互删除**（`--yes` 请慎用，删除不可逆）：
+
+```bash
+node tools/del-post.js --slug 文章文件名 --yes
+node tools/del-post.js --slug 文章文件名 --yes --redirect /archives/
+```
+
+#### 关于 301 跳转
+
+文章删掉后，**原来分享出去的链接会变成 404**。所以脚本会问你：
+「这个链接分享出去过吗？」
+
+| 情况 | 怎么做 |
+| --- | --- |
+| 分享过（发过微信、论坛，或被别人收藏） | 答 `y` —— 脚本在 `_redirects` 里加一条 301，旧链接跳到归档页，不变死链 |
+| 没分享过（刚写完就删了） | 直接回车跳过 |
+
+#### 三个要知道的点
+
+| | |
+| --- | --- |
+| **旧页面会自动清除** | 已实测：构建日志里会出现 `INFO Deleted: 2026/10/03/xxx/index.html`，sitemap / 归档 / 标签 / 分类 / 搜索索引全部同步更新 |
+| **git 历史里仍然留着** | 删文件 + commit 后，内容在 `git log` 里还查得到。删的如果是**涉及隐私**的内容（密码、住址），光删文件不够，必须改写 git 历史 —— 这种情况找人处理，别自己试 |
+| **搜索引擎索引会残留** | 已收录的页面会逐渐消失，可能残留几天到几周。想加速可在 Search Console / 百度资源平台提交「移除请求」 |
 
 ---
 
