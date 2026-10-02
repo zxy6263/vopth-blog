@@ -182,6 +182,33 @@ function todayStamp() {
   };
 }
 
+/**
+ * 找出 front-matter 里 date 在【未来】的文章。
+ *
+ * 为什么需要这个检查：
+ *   新文章的日期是"此刻"，如果仓库里已有文章的日期比此刻还晚，
+ *   那篇新文章就会排到它们下面 —— 表现是「刚发的文章跑到列表中间/最后了」。
+ *   这类问题不报错、只能靠肉眼发现，所以这里主动检查并大声提示。
+ */
+function findFutureDatedPosts() {
+  const now = Date.now();
+  const out = [];
+  if (!fs.existsSync(POSTS_DIR)) return out;
+
+  for (const f of fs.readdirSync(POSTS_DIR)) {
+    if (!f.toLowerCase().endsWith('.md')) continue;
+    const raw = fs.readFileSync(path.join(POSTS_DIR, f), 'utf8');
+    const head = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+    const m = head && /^date:\s*(.+?)\s*$/m.exec(head[1]);
+    if (!m) continue;
+    const t = Date.parse(m[1].replace(/-/g, '/'));
+    if (!Number.isNaN(t) && t > now) {
+      out.push({ slug: f.replace(/\.md$/i, ''), date: m[1], t });
+    }
+  }
+  return out.sort((a, b) => b.t - a.t);
+}
+
 // 从终端拖文件进来会带上引号，去掉
 function cleanPath(p) {
   let s = String(p || '').trim();
@@ -365,6 +392,23 @@ function processCover(srcInput, slug) {
   step(3, 7, '生成 Markdown');
 
   const stamps = todayStamp();
+
+  // 主动查找「日期在未来」的文章 —— 否则这篇会莫名其妙排到它们下面
+  const futurePosts = findFutureDatedPosts();
+  if (futurePosts.length) {
+    warn(`发现 ${futurePosts.length} 篇文章的日期在【未来】：`);
+    futurePosts.slice(0, 5).forEach((p) => say(`        ${p.slug}   date: ${p.date}`));
+    if (futurePosts.length > 5) say(`        ...（共 ${futurePosts.length} 篇）`);
+    say('');
+    say(`  当前真实时间：${new Date().toLocaleString('zh-CN', { hour12: false })}`);
+    say(`  本篇的日期　：${stamps.date}`);
+    say('');
+    say('  ⚠️ 那几篇的日期比你新发的还晚，所以你这篇会排在它们【下面】。');
+    say('     修法：把它们的 date 改成过去的时间。');
+    say('     （顺带一提：置顶字段是 sticky: 100，不是 top）');
+    say('');
+  }
+
   const tagLines = tags
     ? tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean).map((t) => '  - ' + t).join('\n')
     : '';

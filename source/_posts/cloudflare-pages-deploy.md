@@ -1,7 +1,6 @@
 ---
 title: 不买服务器也能有博客：Cloudflare Pages 部署全记录
-date: 2026-10-03 21:10:00
-updated: 2026-10-03 21:10:00
+date: 2026-10-03 02:50:00
 tags:
   - 建站
   - Cloudflare
@@ -11,7 +10,6 @@ categories:
 keywords: Cloudflare Pages,Hexo部署,免费博客,自定义域名
 description: 从阿里云域名到 Cloudflare Pages 自动构建，一份能照着抄的部署流程。
 cover:
-top: false
 comments: true
 toc: true
 ---

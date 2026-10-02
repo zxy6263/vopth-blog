@@ -1,7 +1,6 @@
 ---
 title: 这个博客是怎么搭的：架构、日常流程，和我踩过的 21 个坑
-date: 2026-10-03 23:30:00
-updated: 2026-10-03 23:30:00
+date: 2026-10-03 04:50:00
 tags:
   - 建站
   - Hexo
@@ -97,7 +96,7 @@ git add . && git commit -m "post: 文章标题" && git push
 | `categories` | 分类，**建议只写一个** |
 | `description` | 摘要，用于首页和 SEO |
 | `cover` | 封面图，留空会自动匹配（见下） |
-| `top` | 是否置顶 |
+| `sticky` | 是否置顶（数字越大越靠前）。**注意不是 `top`** |
 | `toc` | 是否显示目录 |
 | `comments` | 是否开启评论 |
 | `author_avatar` | 设为 `false` 可关闭本文的作者署名 |

@@ -1,7 +1,6 @@
 ---
 title: 你好，世界 —— 这个博客终于开张了
-date: 2026-10-03 20:30:00
-updated: 2026-10-03 20:30:00
+date: 2026-10-03 02:30:00
 tags:
   - 建站
   - 随笔
@@ -10,7 +9,10 @@ categories:
 keywords: 开站,个人博客,Cloudflare Pages
 description: 花了一个下午，没买服务器，把 vopth.xyz 变成了一个能用的个人博客。这是第一篇文章。
 cover:
-top: true
+# 置顶。⚠️ 字段是 sticky（数字），不是 top（布尔）——
+# hexo-generator-index 的源码只读 sticky，写 top: true 完全没有效果，
+# 而且【不报任何错】，文章只会安静地按日期排序。数字越大越靠前。
+sticky: 100
 comments: true
 toc: true
 ---
