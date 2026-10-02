@@ -59,9 +59,11 @@ vopth-blog/
 │
 ├── source/                     # 你写的东西都在这里
 │   ├── _posts/                 # ★文章放这里
-│   │   ├── hello-vopth.md
-│   │   ├── cloudflare-pages-deploy.md
-│   │   └── hexo-writing-guide.md   # 写作速查，忘了语法就翻它
+│   │   ├── hello-vopth.md          # 开站第一篇（置顶）
+│   │   ├── cloudflare-pages-deploy.md  # 部署全记录
+│   │   ├── hexo-writing-guide.md   # 写作速查，忘了语法就翻它
+│   │   ├── blog-build-notes.md     # 建站踩坑总结（28 个坑）
+│   │   └── blog-memory-setup.md    # 给博客配 AI 记忆的记录
 │   ├── _data/
 │   │   └── link.yml            # ★友链数据
 │   ├── about/index.md          # ★个人主页 / 关于我
