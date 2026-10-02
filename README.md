@@ -483,6 +483,40 @@ JS 关闭或加载失败时显示的那张静态图配在这几处：
 > Windows PowerShell 5.1 会把无 BOM 的 UTF-8 文件按 GBK 解码，中文注释被解错后
 > 可能产生假的引号或括号，直接导致脚本语法报错 —— 这个坑我实地踩过一次。
 
+### 文章作者署名（头像 + 名字）
+
+**每篇文章都会自动带上作者署名**，位置在文章标题正下方。由 `scripts/post-author.js`
+通过 Hexo 的 `after_render:html` 过滤器在**服务端注入**，所以：
+
+- **关掉 JS 也能看到**，对 SEO 也更友好
+- **以后发新文章自动生效**，不用每篇手动加
+- 首页、归档页、RSS feed **都不会**被影响 —— 它靠 `<h1 class="post-title">`
+  这个只出现在文章页的标记来识别，不依赖 layout 判断
+
+默认值来源：
+
+| 项 | 取自 |
+| --- | --- |
+| 名字 | `_config.yml` 的 `author` |
+| 头像 | `_config.butterfly.yml` 的 `avatar.img`（**和侧边栏头像自动保持一致**） |
+| 链接 | `/about/` |
+
+**单篇文章可以覆盖**（写在文章 front-matter 里）：
+
+```yaml
+author_name: 另一个名字
+author_avatar: /img/other.jpg
+author_link: https://example.com
+```
+
+**某篇文章不想要署名**：
+
+```yaml
+author_avatar: false
+```
+
+> 想改署名样式（圆角、间距、背景透明度等），改 `source/css/custom.css` 的第 9 节。
+
 ---
 
 ## 八、常见问题排错

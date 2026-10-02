@@ -559,3 +559,63 @@
 #page-header.has-video-banner #page-site-info {
   z-index: 2;
 }
+
+/* ---------------------------------------------------------------------------
+ *  9. 文章作者署名（由 scripts/post-author.js 在服务端注入）
+ *
+ *  注入位置：文章标题 </h1> 之后、文章元信息之前。
+ *  #post-info 位于 banner 上、文字是白色的，所以这里也用白色，
+ *  并加半透明深色底 + 文字阴影，避免压在亮画面上看不清。
+ * ------------------------------------------------------------------------- */
+#post-info .post-author {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 4px;
+}
+
+#post-info .post-author a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px 4px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--white);
+  text-decoration: none;
+  transition: background 0.25s;
+}
+
+#post-info .post-author a:hover {
+  background: rgba(0, 0, 0, 0.36);
+  color: var(--white);
+}
+
+#post-info .post-author img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+#post-info .post-author .post-author-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+@media screen and (max-width: 768px) {
+  #post-info .post-author a {
+    padding: 3px 12px 3px 3px;
+  }
+
+  #post-info .post-author img {
+    width: 34px;
+    height: 34px;
+  }
+
+  #post-info .post-author .post-author-name {
+    font-size: 0.88rem;
+  }
+}

@@ -234,6 +234,50 @@ if ($homeBody) {
 
 Write-Host ''
 
+# ----------------------------------------------------- 4b. post page byline
+Write-Host '--- 4b. Post page author byline ---'
+
+$postBody = (Invoke-Page ($BaseUrl + '/2026/10/03/hello-vopth/')).Body
+
+if ($postBody) {
+    $byline = [regex]::Match($postBody, '<div class="post-author">.*?</div>')
+    if ($byline.Success) {
+        Write-Result 'author byline injected' 'PASS'
+        $script:Pass++
+        if ($byline.Value -match '<img') {
+            Write-Result 'byline contains avatar img' 'PASS'
+            $script:Pass++
+        } else {
+            Write-Result 'byline contains avatar img' 'FAIL' 'no <img> in byline'
+            $script:Fail++
+        }
+        if ($byline.Value -match 'post-author-name') {
+            Write-Result 'byline contains author name' 'PASS'
+            $script:Pass++
+        } else {
+            Write-Result 'byline contains author name' 'FAIL'
+            $script:Fail++
+        }
+    } else {
+        Write-Result 'author byline injected' 'FAIL' 'scripts/post-author.js did not run'
+        $script:Fail++
+    }
+} else {
+    Write-Result 'author byline injected' 'FAIL' 'could not fetch post page'
+    $script:Fail++
+}
+
+# The filter must NOT leak onto the homepage (it keys off <h1 class="post-title">)
+if ($homeBody -and $homeBody -notmatch 'class="post-author"') {
+    Write-Result 'byline absent on homepage (no leak)' 'PASS'
+    $script:Pass++
+} elseif ($homeBody) {
+    Write-Result 'byline absent on homepage (no leak)' 'FAIL' 'post-author found on homepage'
+    $script:Fail++
+}
+
+Write-Host ''
+
 # --------------------------------------------------------- 5. no external CDN
 Write-Host '--- 5. Third-party CDN independence ---'
 
