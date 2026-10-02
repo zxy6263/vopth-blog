@@ -120,6 +120,7 @@ $endpoints = @(
     @{ Path = '/subscribe/';                       Name = 'subscribe page' },
     @{ Path = '/2026/10/03/hello-vopth/';          Name = 'post: hello-vopth' },
     @{ Path = '/2026/10/03/hexo-writing-guide/';   Name = 'post: writing guide' },
+    @{ Path = '/2026/10/03/blog-build-notes/';     Name = 'post: build notes' },
     @{ Path = '/atom.xml';                         Name = 'RSS feed' },
     @{ Path = '/search.xml';                       Name = 'search index' },
     @{ Path = '/feed';                             Name = 'feed alias -> atom.xml' },
