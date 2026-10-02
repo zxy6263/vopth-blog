@@ -76,9 +76,12 @@ vopth-blog/
 │   ├── img/                    # 头像、logo、banner、封面（SVG + 照片）
 │   └── videos/                 # 视频 banner 及其海报图
 │
+├── 发文章.cmd                  # ★双击它就能发文章（一键发帖入口）
+│
 ├── tools/
+│   ├── new-post.js             # ★一键发文章脚本（发文章.cmd 和 npm run new-post 都调它）
 │   ├── post-build.js           # 构建收尾：把 _headers/_redirects 放进 public/
-│   ├── check-site.ps1          # 部署后验收脚本（40+ 项检查）
+│   ├── check-site.ps1          # 部署后验收脚本（48 项检查）
 │   └── compress-banner-video.ps1  # 把手机/壁纸站下的大视频压成适合做 banner 的 mp4
 └── public/                     # 构建产物（已 gitignore，不用管）
 ```
@@ -293,12 +296,70 @@ Cloudflare 会自动重新构建，1～2 分钟后线上生效。
 
 ## 六、日常写作流程
 
+### 一键发文章（推荐）
+
+```bash
+npm run new-post
+```
+
+或者**双击仓库根目录的 `发文章.cmd`** —— 效果一样。
+
+它会依次问几件事：
+
+| 问题 | 说明 |
+| --- | --- |
+| 文章标题 | 必填 |
+| 文件名 | 英文，同时是 URL 的一部分。**留空会自动用标题的拼音**（例：`这个博客是怎么搭的` 会变成 `zhe-ge-bo-ke-shi-zen-me-da-de`） |
+| 分类 | 默认「随笔」 |
+| 标签 | 逗号分隔，可留空 |
+| 摘要 | 用于首页和搜索，可留空（留空则自动截取） |
+| 封面图路径 | **可以把图片文件直接拖进命令行窗口**；留空则用默认封面 |
+
+然后脚本自动完成：
+
+1. 生成 `source/_posts/<文件名>.md`
+2. **自动处理封面图** —— 复制到 `source/img/covers/<文件名>.<扩展名>`；
+   如果图超过 1600px 宽或 400 KB，自动缩到 1280 宽
+3. 用 VS Code 打开让你写正文（找不到 VS Code 就用记事本）
+4. **写完保存并关闭编辑器**，脚本自动执行构建
+5. **校验文章真的生成了**（查 sitemap，不只看退出码 —— 这个项目里"退出码 0 但没生效"的坑踩过太多次）
+6. `git commit` + `git push` → Cloudflare 自动部署
+
+> **发帖方式没有变** —— 依然是「Markdown 文件 → git push → Cloudflare 自动构建」。
+> 这个脚本只是把手动步骤串起来，**没有引入任何新机制、新服务、新依赖到构建流程里**。
+
+**几个安全设计：**
+
+| 情况 | 脚本行为 |
+| --- | --- |
+| 工作区有未提交改动 | **先警告并列出，要求确认** —— 避免把不相关的改动一起提交 |
+| 构建失败 | **中止，不提交不推送**，文章文件保留在本地 |
+| 推送失败 | 明确告知「本地已提交，网络恢复后手动 `git push` 即可」 |
+| 文件名已存在 | 提前拦住，不会覆盖旧文章 |
+
+**非交互用法**（脚本化、或只想演练一次）：
+
+```bash
+node tools/new-post.js --title "标题" --slug my-post --no-edit --no-push
+```
+
+- `--no-edit` 不打开编辑器（先把文件建好，正文之后再写）
+- `--no-push` 只生成并构建，**不提交不推送**
+- 其余参数：`--category`、`--tags`、`--desc`、`--cover`
+
+**想用别的编辑器**：设环境变量 `NEW_POST_EDITOR` 为编辑器的完整路径。
+
+> 拼音文件名依赖 `pinyin-pro`（开发依赖，944 KB、零依赖）。
+> 它**只被这个脚本用到**，不参与网站构建，也不会进构建产物。
+
+### 手动方式（脚本出问题时的后备）
+
 ```bash
 # 1. 新建文章（文件名用英文 slug，标题写中文）
 npx hexo new "how-to-debug-node"
 
 # 2. 编辑 source/_posts/how-to-debug-node.md
-#    把 front-matter 里的 title 改成中文，例如：title: Node.js 调试踩坑记
+#    把 front-matter 里的 title 改成中文
 
 # 3. 本地预览
 npm run server
@@ -309,7 +370,7 @@ git commit -m "post: Node.js 调试踩坑记"
 git push
 ```
 
-就这样。推上去之后 Cloudflare 自动构建，**没有 FTP 上传，没有登录服务器，没有 `nginx -s reload`**。
+推上去之后 Cloudflare 自动构建，**没有 FTP 上传，没有登录服务器，没有 `nginx -s reload`**。
 
 **front-matter 和主题标签插件的完整写法**（提示框、选项卡、按钮、图片、mermaid 流程图…）都写在
 [`source/_posts/hexo-writing-guide.md`](source/_posts/hexo-writing-guide.md) 里，忘了就翻这篇。

@@ -59,7 +59,15 @@ meta_generator: true
 # ------------------------------------------------------------------ 日期 / 时间
 date_format: YYYY-MM-DD
 time_format: HH:mm:ss
-updated_option: 'mtime' # 用文件修改时间作为「最后更新」
+# 「最后更新」时间的兜底值：用文章 front-matter 里的 date。
+#
+# ⚠️ 千万不要改成 'mtime'。mtime 取的是【文件系统修改时间】，而 Cloudflare
+#    每次构建都是全新 checkout，文件 mtime 等于构建那一刻 —— 结果是所有文章
+#    都显示「更新于 = 构建当天」，而且越往后越离谱
+#    （11 月发一篇新文章，10 月的旧文也会变成"更新于 11 月"）。
+#
+# 想手动标注某篇文章的修订日期，在它的 front-matter 里写 updated: 即可。
+updated_option: 'date'
 
 # ------------------------------------------------------------------ 分页
 per_page: 10

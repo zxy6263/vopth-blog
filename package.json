@@ -9,6 +9,7 @@
     "server": "hexo server",
     "dev": "hexo server --draft",
     "new": "hexo new",
+    "new-post": "node tools/new-post.js",
     "deploy": "hexo deploy"
   },
   "engines": {
@@ -35,5 +36,8 @@
     "hexo-server": "^3.0.0",
     "hexo-theme-butterfly": "^5.7.0",
     "hexo-wordcount": "^6.0.1"
+  },
+  "devDependencies": {
+    "pinyin-pro": "^3.29.4"
   }
 }
