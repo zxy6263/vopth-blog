@@ -26,3 +26,6 @@ Thumbs.db
 # Windows 快捷方式（本地文件，不进仓库）
 *.lnk
 
+# 本地记忆库与项目笔记（agent 用，不进公开仓库）
+.dsh-project-memory/
+.project-notes/
