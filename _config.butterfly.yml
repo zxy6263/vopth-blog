@@ -275,20 +275,27 @@ share:
 # 留空 = 不显示评论区。要开启请看 README「可选：开启评论」，
 # 用 giscus（基于 GitHub Discussions，完全免费、无需服务器）。
 comments:
+  # ⚠️ 必须是【列表】，且首字母大写。
+  # 主题里的判断是 `use[0] === 'Giscus'` —— 写成 `use: giscus` 会静默不生效。
   use:
+    - Giscus
   text: true
   lazyload: true
   count: false
   card_post_count: false
 
-# giscus 参数已按你的仓库预填，只差 repo_id / category_id
-# 到 https://giscus.app/ 输入仓库名即可拿到这两个值
+# giscus 参数：repo_id / category_id 来自 https://giscus.app/ 生成的代码
 giscus:
   repo: zxy6263/vopth-blog
-  repo_id:
-  category_id:
+  repo_id: R_kgDOU5RwVw
+  category_id: DIC_kwDOU5RwV84DG65J
   light_theme: light
   dark_theme: dark
+  # 主题写死了 mapping=pathname 和 reactions=1，但【没设 data-lang】，
+  # 不传的话界面是英文。这几项通过 option 原样透传到 giscus 的 script 标签。
+  option:
+    data-lang: zh-CN
+    data-input-position: bottom
 
 # ------------------------------------------------------------------ 统计
 # 推荐用 Cloudflare Web Analytics：免费、无 Cookie、就在你部署的平台上
