@@ -22,3 +22,6 @@
 /feed.xml               /atom.xml                 301
 /rss                    /atom.xml                 301
 /rss.xml                /atom.xml                 301
+
+# 删除文章后加的跳转（旧链接不要变死链）
+/2026/10/03/zhen-dao-wo-fa-wen-zhang-zhen-jiu-bu-zhi-dao-shuo-shen-me/ /archives/               301
