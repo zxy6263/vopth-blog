@@ -93,7 +93,7 @@ subtitle:
   effect: true
   source: false # 不调用第三方一言 API，避免外链
   sub:
-    - '一个爱瞎折腾IT的爱好者'
+    - 'TOKEN爱好者'
     - '写代码，也写生活'
     - '把踩过的坑都记下来'
 
@@ -163,7 +163,7 @@ aside:
   # 作者卡片
   card_author:
     enable: true
-    description: 一个爱瞎折腾IT的爱好者
+    description: TOKEN爱好者
     button:
       enable: true
       icon: fab fa-github

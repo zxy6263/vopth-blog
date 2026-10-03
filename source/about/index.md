@@ -16,7 +16,7 @@ toc: false
   <img class="about-avatar" src="/img/avatar.jpg" alt="vopth">
   <div class="about-hero-body">
     <h2 class="about-name">vopth</h2>
-    <p class="about-tagline">一个爱瞎折腾IT的爱好者</p>
+    <p class="about-tagline">TOKEN爱好者</p>
     <p class="about-desc">
       白天写代码，晚上折腾各种「看起来没什么用但很好玩」的东西。<br>
       这个博客是我给自己留的一块自留地 —— 记录技术笔记、踩过的坑，还有一些生活碎片。
@@ -32,7 +32,7 @@ toc: false
 
 ## 我是谁
 
-一个普通的 IT 爱好者。喜欢把一个东西拆开看看里面是怎么转的，也喜欢把折腾的过程记下来 —— 因为记性实在不太好，同一个坑踩两遍是很不划算的事。
+一个普通的 TOKEN爱好者。喜欢把一个东西拆开看看里面是怎么转的，也喜欢把折腾的过程记下来 —— 因为记性实在不太好，同一个坑踩两遍是很不划算的事。
 
 这个博客的定位很简单：**写给未来的自己看**。如果恰好也帮到了路过的你，那就更好了。
 

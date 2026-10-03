@@ -20,7 +20,7 @@ comments: false
 | 名称 | vopth |
 | 地址 | `https://vopth.xyz` |
 | 头像 | `https://vopth.xyz/img/avatar.jpg` |
-| 简介 | 一个爱瞎折腾IT的爱好者 |
+| 简介 | TOKEN爱好者 |
 
 然后发邮件到 [3585648116@qq.com](mailto:3585648116@qq.com)，或者直接在 GitHub 上找我，附上你的站点信息，我看到就会加。
 
