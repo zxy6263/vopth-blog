@@ -146,7 +146,7 @@ footer:
   copyright:
     enable: true
     version: true
-  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://pages.cloudflare.com" target="_blank" rel="noopener">Cloudflare Pages</a>'
+  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a>'
 
 # ------------------------------------------------------------------ 侧边栏
 aside:
@@ -163,7 +163,7 @@ aside:
   # 作者卡片
   card_author:
     enable: true
-    description: TOKEN爱好者
+    description: deepseek忠实合作伙伴
     button:
       enable: true
       icon: fab fa-github
