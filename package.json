@@ -5,7 +5,7 @@
   "description": "vopth.xyz — 个人主页与博客，Hexo + Butterfly，部署于 Cloudflare Workers",
   "scripts": {
     "clean": "hexo clean",
-    "build": "hexo generate && node tools/post-build.js",
+    "build": "hexo generate && node tools/post-build.js && node tools/indexnow.js",
     "server": "hexo server",
     "dev": "hexo server --draft",
     "new": "hexo new",
