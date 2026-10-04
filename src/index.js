@@ -32,6 +32,8 @@
  *   这里统一成：带尾斜杠、去掉查询串。
  */
 
+import { sendMail } from './mail.js';
+
 const KV_PREFIX = 'pv:';
 const TOTAL_KEY = KV_PREFIX + '__total__';
 
@@ -122,6 +124,43 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const p = url.pathname;
+
+    // ------------------------------------------------------------------
+    //  手动触发一封测试信
+    //
+    //  用 MAIL_TEST_KEY 保护：这是个公开站点，不加保护任何人都能拿它当
+    //  发信机用，而发信额度被刷爆之后正事就发不出去了。
+    //  用法：/api/mail-test?key=<MAIL_TEST_KEY>
+    //  ------------------------------------------------------------------
+    if (p === '/api/mail-test') {
+      const key = url.searchParams.get('key') || '';
+      if (!env.MAIL_TEST_KEY || key !== env.MAIL_TEST_KEY) {
+        return json({ error: 'forbidden' }, 403);
+      }
+
+      const missing = ['SMTP_USER', 'SMTP_PASS', 'MAIL_TO'].filter((k) => !env[k]);
+      if (missing.length) {
+        return json({ error: 'secrets not set', missing: missing }, 500);
+      }
+
+      try {
+        const r = await sendMail({
+          host: env.SMTP_HOST || 'smtp.qq.com',
+          port: Number(env.SMTP_PORT || 465),
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+          from: env.SMTP_USER,
+          to: env.MAIL_TO,
+          subject: '[vopth.xyz] 邮件通道测试',
+          text: '如果你收到这封邮件，说明 Cloudflare Worker 直连 QQ SMTP 成功。\n\n' +
+                '发送时间：' + new Date().toISOString() + '\n' +
+                '收件地址：' + env.MAIL_TO + '\n'
+        });
+        return json({ ok: true, to: env.MAIL_TO, steps: r.steps });
+      } catch (e) {
+        return json({ ok: false, error: String(e && e.message) }, 500);
+      }
+    }
 
     if (p === '/api/views' || p === '/api/views/') {
       if (request.method === 'OPTIONS') {
