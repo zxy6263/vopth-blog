@@ -153,14 +153,44 @@ export async function sendMail(opts) {
       'Subject: ' + encodeHeader(subject || '(无主题)'),
       'Date: ' + new Date().toUTCString(),
       'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=UTF-8',
-      'Content-Transfer-Encoding: 8bit',
       'X-Mailer: vopth.xyz notifier'
-    ].join(CRLF);
+    ];
 
-    const payload = headers + CRLF + CRLF + dotStuff(text || '') + CRLF + '.';
-    // 同样给 label：默认会把整封信（含正文）写进 steps
-    await cmd(payload, [2], 'DATA (' + payload.length + ' 字节 · 正文已隐去)');
+    const plain = text || '';
+    const rich = opts.html || '';
+    let body;
+
+    if (rich) {
+      // multipart/alternative：纯文本在前、HTML 在后。
+      // 支持 HTML 的客户端显示后一个（更好看的），不支持的退回纯文本。
+      // 顺序不能反 —— 规范要求从简到繁排列，客户端挑最后一个能渲染的。
+      const boundary = 'vopth-' + Date.now().toString(36) + '-' +
+                       Math.random().toString(36).slice(2, 10);
+      headers.push('Content-Type: multipart/alternative; boundary="' + boundary + '"');
+      body = [
+        '--' + boundary,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        plain,
+        '--' + boundary,
+        'Content-Type: text/html; charset=UTF-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        rich,
+        '--' + boundary + '--',
+        ''
+      ].join(CRLF);
+    } else {
+      headers.push('Content-Type: text/plain; charset=UTF-8');
+      headers.push('Content-Transfer-Encoding: 8bit');
+      body = plain;
+    }
+
+    // dotStuff 统一做一次（它会顺手把换行规范成 CRLF）
+    const payload = headers.join(CRLF) + CRLF + CRLF + body;
+    await cmd(dotStuff(payload) + CRLF + '.', [2],
+      'DATA (' + payload.length + ' 字节 · 正文已隐去)');
 
     // 5. 礼貌收尾
     try { await cmd('QUIT', [2]); } catch (e) { /* 收尾失败无所谓 */ }

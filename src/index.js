@@ -174,7 +174,14 @@ export default {
       }
       try {
         const r = await sendStatusReport(env);
-        return json({ ok: r.ok, total: r.total, pages: r.pages, online: r.online });
+        const out = { ok: r.ok, total: r.total, pages: r.pages, online: r.online };
+        // preview=1 时把生成的邮件内容也返回，方便在浏览器里直接看排版
+        // （内容只有自己的统计数据，不含任何凭据）
+        if (url.searchParams.get('preview') === '1') {
+          out.html = r.html;
+          out.text = r.text;
+        }
+        return json(out);
       } catch (e) {
         return json({ ok: false, error: String(e && e.message) }, 500);
       }
