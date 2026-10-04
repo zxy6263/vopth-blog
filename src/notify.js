@@ -363,7 +363,12 @@ async function listPageViews(env) {
   let cursor;
   do {
     const res = await env.PAGEVIEWS.list({ prefix: 'pv:/', cursor: cursor });
-    for (const k of res.keys) paths.push(k.name.slice(3));
+    for (const k of res.keys) {
+      const p = k.name.slice(3);
+      // 过滤掉测试留下的键（如 __selftest__），它们不该出现在文章排行里
+      if (p.indexOf('__') !== -1) continue;
+      paths.push(p);
+    }
     cursor = res.list_complete ? null : res.cursor;
   } while (cursor);
 
