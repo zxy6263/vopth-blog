@@ -4,11 +4,13 @@
 # ===========================================================================
 
 # ------------------------------------------------------------------ 站点信息
-title: Vopth
+# 站名用小写 v（站主要求）—— 这里改了，导航栏、banner、浏览器标题、
+# 侧边栏作者卡、RSS/sitemap 里的站名会一起跟着变。
+title: vopth
 subtitle: '写代码，也写生活'
-description: 'Vopth 的个人主页与技术博客 —— 记录编程、折腾与日常。'
-keywords: 'Vopth,个人博客,技术博客,编程笔记'
-author: Vopth
+description: 'vopth 的个人主页与技术博客 —— 记录编程、折腾与日常。'
+keywords: 'vopth,个人博客,技术博客,编程笔记'
+author: vopth
 language: zh-CN
 timezone: 'Asia/Shanghai'
 
