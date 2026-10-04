@@ -242,15 +242,46 @@
 /* ---------------------------------------------------------------------------
  *  3. 关于页 / 个人主页（/about/）
  * ------------------------------------------------------------------------- */
+/* 关于页顶部卡片。
+ *
+ * 站主要求「上下不要留那么多空」。实测发现空的不只是卡片自己：
+ *   主题给内容容器加了 padding: 50px 40px（手机 36px），
+ *   卡片自己又有 padding: 26px，两层叠起来上下就很空。
+ * 所以这里两件事一起做：
+ *   1) 卡片自己的内边距收紧（26px -> 16px / 左右 22px）
+ *   2) 用负上外边距把卡片往上提，抵消主题那层 50px 的大部分
+ *      —— 用负 margin 而不是改主题的 padding，是因为要【只影响关于页】，
+ *         主题那条规则是全站共用的，动了会牵连所有页面。
+ */
 .about-hero {
   display: flex;
-  gap: 24px;
+  gap: 18px;
   align-items: center;
-  padding: 26px;
-  margin-bottom: 10px;
+  padding: 16px 22px;
+  margin-bottom: 4px;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(74, 108, 247, 0.1), rgba(124, 92, 255, 0.1));
   border: 1px solid rgba(74, 108, 247, 0.18);
+}
+
+/* 卡片是页面第一个元素时往上提：50px 上内边距 -> 视觉上约 24px */
+.about-hero:first-child {
+  margin-top: -26px;
+}
+
+/* 紧跟卡片的小标题：主题默认 margin-top 20px，和卡片的 margin-bottom 叠成 30px，收掉 */
+.about-hero + h2 {
+  margin-top: 6px;
+}
+
+@media screen and (max-width: 768px) {
+  .about-hero {
+    padding: 14px 16px;
+  }
+  /* 手机上主题给容器的上内边距是 36px */
+  .about-hero:first-child {
+    margin-top: -18px;
+  }
 }
 
 .about-avatar {
@@ -262,21 +293,21 @@
 }
 
 .about-name {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   font-size: 1.6rem;
   color: var(--font-color);
 }
 
 .about-tagline {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-weight: 600;
   color: #4a6cf7;
 }
 
 .about-desc {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   font-size: 0.95rem;
-  line-height: 1.9;
+  line-height: 1.8;
   color: var(--card-meta);
 }
 
