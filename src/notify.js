@@ -261,12 +261,31 @@ async function recentComments(env, limit) {
 export async function sendStatusReport(env) {
   const started = Date.now();
 
-  // 1. 在线状态：请求自己的首页
+  // 1. 静态资源自检
+  //
+  //  ⚠️ 这里【不能】去 fetch 自己域名的首页。
+  //     实测：Worker 请求自己所在 zone 的域名会返回 522（Connection timed out），
+  //     而且 61ms 就返回了 —— 根本不是超时。原因是请求绕回 Cloudflare 边缘后
+  //     要找源站，而这个 Worker 自己就是源站，形成自引用，连不上。
+  //     这不是站点故障，是自引用请求的固有行为，写进报告只会天天吓自己。
+  //
+  //     所以改成用 ASSETS 绑定直接问静态资源层：能拿到 200 且内容不为空，
+  //     就说明这次部署的产物是好的、页面能正常吐出来 —— 这才是真正会坏、
+  //     也真正需要监控的部分。
+  //
+  //     诚实说明：这个检查覆盖不到 DNS / 证书 / 边缘节点的故障（那些归
+  //     Cloudflare 管，worker 从内部看不到）。
   let online = { ok: false, status: 0, ms: 0, note: '' };
   try {
     const t0 = Date.now();
-    const res = await fetch(siteUrl(env, '/'), { cf: { cacheTtl: 0 } });
-    online = { ok: res.ok, status: res.status, ms: Date.now() - t0, note: '' };
+    const res = await env.ASSETS.fetch(new Request(siteUrl(env, '/'), { method: 'GET' }));
+    const body = await res.text();
+    online = {
+      ok: res.ok && body.length > 200,
+      status: res.status,
+      ms: Date.now() - t0,
+      note: res.ok ? '' : '静态资源层返回异常或内容为空'
+    };
   } catch (e) {
     online = { ok: false, status: 0, ms: Date.now() - started, note: String(e && e.message) };
   }
@@ -294,10 +313,12 @@ export async function sendStatusReport(env) {
   L.push('时间：' + new Date().toISOString() + '（UTC）');
   L.push('      ' + new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19) + '（北京）');
   L.push('');
-  L.push('【1】站点状态');
+  L.push('【1】静态资源自检');
   L.push('  ' + (online.ok ? '✅ 正常' : '❌ 异常') +
-         '   HTTP ' + (online.status || '-') + '   首页响应 ' + online.ms + ' ms' +
+         '   HTTP ' + (online.status || '-') + '   耗时 ' + online.ms + ' ms' +
          (online.note ? '   ' + online.note : ''));
+  L.push('  （检查的是部署产物本身。Worker 无法从外部访问自己的域名 ——');
+  L.push('    自引用请求会返回 522，所以这里不用那种方式，免得天天假警报。）');
   L.push('');
   L.push('【2】浏览量');
   L.push('  总浏览量：' + total + ' 次' + (prev > 0 ? '（比上次报告 +' + delta + '）' : '（首次报告，无对比）'));
