@@ -77,13 +77,19 @@
 
   // ---------------------------------------------------------------- 渲染
 
-  // 文章页的元信息那一行在哪，随主题版本可能不同，所以多试几个选择器
+  // 文章页元信息在哪 —— Butterfly 5.7 的真实结构（实测线上 HTML）是：
+  //   <div id="post-meta">
+  //     <div class="meta-firstline">  发表于 | 更新于 | 分类 </div>
+  //     <div class="meta-secondline"> | 总字数 | 阅读时长 </div>
+  //   </div>
+  // 插到 meta-secondline 里，和「总字数」「阅读时长」排在同一行。
+  // 其余选择器是保险：万一哪天主题改了结构，还能退到别的落点。
   function findPostMeta() {
     var sels = [
+      '#post-meta .meta-secondline',
+      '#post-meta',
       '#post-info .post-meta-container',
-      '.post-meta-container',
-      '#post-info .post-meta',
-      '.post-meta'
+      '.post-meta-container'
     ];
     for (var i = 0; i < sels.length; i++) {
       var el = document.querySelector(sels[i]);
@@ -93,14 +99,27 @@
   }
 
   function renderPostViews(views) {
-    var meta = findPostMeta();
-    if (!meta) return;
+    var target = findPostMeta();
+    if (!target) return;
 
-    var span = document.createElement('span');
-    span.className = 'post-meta-pageviews';
-    span.title = '本站自己统计的浏览次数（每个会话只计一次）';
-    span.innerHTML = '<i class="fas fa-eye fa-fw" aria-hidden="true"></i>阅读 ' + fmt(views);
-    meta.appendChild(span);
+    var wrap = document.createElement('span');
+    wrap.className = 'post-meta-pageviews';
+    wrap.title = '本站自己统计的浏览次数（每个会话只计一次）';
+
+    if (target.classList.contains('meta-secondline')) {
+      // 和主题里「总字数」「阅读时长」一样的画法：分隔符 + 图标 + 标签
+      wrap.innerHTML =
+        '<span class="post-meta-separator">|</span>' +
+        '<i class="fas fa-eye fa-fw post-meta-icon"></i>' +
+        '<span class="post-meta-label">阅读:</span>' +
+        '<span>' + fmt(views) + '</span>';
+    } else {
+      // 退路：结构不认识时，用最朴素的一小段
+      wrap.innerHTML =
+        '<i class="fas fa-eye fa-fw"></i><span>阅读 ' + fmt(views) + '</span>';
+    }
+
+    target.appendChild(wrap);
   }
 
   // 侧边栏「网站信息」卡片 —— 用主题自己的 webinfo-item 结构，样式自动一致
