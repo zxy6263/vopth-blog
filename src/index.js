@@ -144,6 +144,15 @@ export default {
         return json({ error: 'secrets not set', missing: missing }, 500);
       }
 
+      // 限流：一分钟最多触发一次。
+      // MAIL_TEST_KEY 万一外泄，别人也不能拿它当发信机刷 —— 刷爆发信额度会让
+      // 正事的邮件发不出去，而大量异常发信还可能让 QQ 邮箱把账号风控掉。
+      const rlKey = 'pv:rl:mail-test';
+      if (await env.PAGEVIEWS.get(rlKey)) {
+        return json({ error: 'too many requests', retryAfterSeconds: 60 }, 429);
+      }
+      await env.PAGEVIEWS.put(rlKey, '1', { expirationTtl: 60 });
+
       try {
         const r = await sendMail({
           host: env.SMTP_HOST || 'smtp.qq.com',
@@ -157,7 +166,9 @@ export default {
                 '发送时间：' + new Date().toISOString() + '\n' +
                 '收件地址：' + env.MAIL_TO + '\n'
         });
-        return json({ ok: true, to: env.MAIL_TO, steps: r.steps });
+        // 不回显收件地址：它含手机号，而这个站点是公开的。
+        // （地址只出现在真正发出去的那封信的正文里，那只有收件人本人看得到。）
+        return json({ ok: true, steps: r.steps });
       } catch (e) {
         return json({ ok: false, error: String(e && e.message) }, 500);
       }
@@ -172,6 +183,13 @@ export default {
       if (!env.MAIL_TEST_KEY || rk !== env.MAIL_TEST_KEY) {
         return json({ error: 'forbidden' }, 403);
       }
+
+      // 同 mail-test 的限流理由；报告会遍历整站并抓标题，更贵，所以给 5 分钟
+      const rlKey2 = 'pv:rl:report-test';
+      if (await env.PAGEVIEWS.get(rlKey2)) {
+        return json({ error: 'too many requests', retryAfterSeconds: 300 }, 429);
+      }
+      await env.PAGEVIEWS.put(rlKey2, '1', { expirationTtl: 300 });
       try {
         const r = await sendStatusReport(env);
         const out = { ok: r.ok, total: r.total, pages: r.pages, online: r.online };

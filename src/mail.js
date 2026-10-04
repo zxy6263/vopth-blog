@@ -158,8 +158,10 @@ export async function sendMail(opts) {
     await cmd(base64Utf8(pass), [2], '(密码 base64 · 已隐去)');
 
     // 4. 信封 + 正文
-    await cmd('MAIL FROM:<' + from + '>', [2]);
-    await cmd('RCPT TO:<' + to + '>', [2, 25]);   // 251 = 会转发
+    //    这两步也要 label：命令原文里是收件人/发件人邮箱地址，
+    //    而 steps 会回给调用方 —— 收件地址含手机号，不该出现在公开站点上。
+    await cmd('MAIL FROM:<' + from + '>', [2], '(发件人 · 已隐去)');
+    await cmd('RCPT TO:<' + to + '>', [2, 25], '(收件人 · 已隐去)');   // 251 = 会转发
     await cmd('DATA', [3]);
 
     const headers = [
