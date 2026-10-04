@@ -29,3 +29,4 @@ Thumbs.db
 # 本地记忆库与项目笔记（agent 用，不进公开仓库）
 .dsh-project-memory/
 .project-notes/
+.wrangler-dev.log

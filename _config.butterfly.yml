@@ -387,3 +387,6 @@ inject:
   bottom:
     - '<script src="/js/profile-hero.js" defer></script>'
     - '<script src="/js/banner-video.js" defer></script>'
+    # 浏览量：显示「阅读 N」和侧边栏「总访问量」。
+    # 计数接口是 /api/views，由 src/index.js 那个 Worker 提供（同域，无需跨域）。
+    - '<script src="/js/page-views.js" defer></script>'

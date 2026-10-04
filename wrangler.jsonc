@@ -18,9 +18,48 @@
   // 以后想启用新的运行时特性时再改。
   "compatibility_date": "2026-10-02",
 
+  // --------------------------------------------------------------------------
+  //  Worker 脚本（浏览量计数器，见 src/index.js）
+  //
+  //  之前这里【故意不写 main】，是纯静态资源 —— 因为当时没有任何接口需求。
+  //  现在只需要处理 /api/views 一个接口，其余请求原样交给下面的静态资源。
+  //
+  //  ⚠️ 加了 main 会不会影响「静态资源免费不限量」？不会。
+  //     Cloudflare 文档原文（static-assets/billing-and-limitations）：
+  //       "Requests to static assets are free and unlimited.
+  //        Requests to the Worker script are billed according to Workers pricing."
+  //     也就是：请求【命中静态资源】时不跑 Worker、不计费；
+  //     只有落到 /api/views 这种没有对应文件的路径上才会调用 Worker。
+  //
+  //  ⚠️ 前提：不要开启 run_worker_first（这里没开，保持默认 false）。
+  //     开了之后匹配到的请求会被强制送进 Worker，免费额度用完后直接 429。
+  // --------------------------------------------------------------------------
+  "main": "./src/index.js",
+
+  // 浏览量存这里。"PAGEVIEWS" 就是 src/index.js 里的 env.PAGEVIEWS。
+  //
+  // ⚠️ 这里【故意不写 id】。
+  //    wrangler 4.x 支持「自动创建资源」：绑定时不给 id，部署时会自动
+  //    创建对应的 KV 命名空间并接上。
+  //    实测：
+  //      · 省略 id  -> `wrangler deploy --dry-run` 通过，并列出 env.PAGEVIEWS 绑定
+  //      · "id": "" -> 被拒（要求是 string "id"）
+  //    如果哪次部署报 KV 相关的错，改成显式 id 即可：
+  //      npx wrangler kv namespace create PAGEVIEWS
+  //    或仪表盘 → 存储和数据库 → KV → 创建命名空间，把 ID 填进 "id"。
+  "kv_namespaces": [
+    { "binding": "PAGEVIEWS" }
+  ],
+
   "assets": {
     // Hexo 的构建产物目录 —— 这是整个文件里最关键的一行
     "directory": "./public/",
+
+    // ⚠️ 必须显式给静态资源起个绑定名，否则 Worker 里的 env.ASSETS 是
+    //    undefined —— 表现是「不存在的路径返回 500 而不是 404」。
+    //    因为命中了静态文件的请求根本不跑 Worker，只有没命中的才会
+    //    落到 Worker 里，那时就需要我们自己把它交还给静态资源层。
+    "binding": "ASSETS",
 
     // 找不到页面时，返回 public/404.html，并带 404 状态码
     "not_found_handling": "404-page",
@@ -30,8 +69,4 @@
     // 和 Hexo 的 pretty_urls 设置相匹配。
     "html_handling": "auto-trailing-slash"
   }
-
-  // 这里故意不写 "main" —— 没有 Worker 脚本，就是纯静态资源。
-  // 好处：静态资源请求不计费、不限量。
-  // 以后想加接口（比如自己写评论后端），再加 "main": "./src/index.js"。
 }
