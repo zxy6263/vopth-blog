@@ -83,6 +83,13 @@ function bjNow() {
   return new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
 }
 
+/** 把 ISO 时间转成北京时间可读串（Atom 源里给的是 UTC，直接显示会差 8 小时）*/
+function bjTime(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return String(iso || '').slice(0, 16).replace('T', ' ');
+  return new Date(t + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 16) + '（北京）';
+}
+
 function shortName(path) {
   const seg = String(path).split('/').filter(Boolean).pop() || '/';
   try { return decodeURIComponent(seg); } catch (e) { return seg; }
@@ -370,7 +377,9 @@ async function listPageViews(env) {
 
 async function titleOf(env, path) {
   try {
-    const res = await fetch(siteUrl(env, path), { cf: { cacheTtl: 300 } });
+    // ⚠️ 不能用 fetch 自己的域名 —— 自引用请求会返回 522（见上面静态资源自检的注释）。
+    //    用 ASSETS 绑定直接从 public/ 取文件，路径映射规则和线上访问一致。
+    const res = await env.ASSETS.fetch(new Request(siteUrl(env, path), { method: 'GET' }));
     if (!res.ok) return shortName(path);
     const html = (await res.text()).slice(0, 20000);
     const m = html.match(/<title>([^<]*)<\/title>/i);
@@ -407,21 +416,35 @@ async function recentDays(env, n) {
 async function recentComments(env, limit) {
   const repo = env.GISCUS_REPO || 'zxy6263/vopth-blog';
   try {
-    const res = await fetch(
-      'https://api.github.com/repos/' + repo + '/discussions/comments?per_page=' + (limit || 5),
-      { headers: { 'accept': 'application/vnd.github+json', 'user-agent': 'vopth-notifier' } }
-    );
+    // 为什么不用 GitHub Discussions 的 REST 接口：
+    //   /repos/<owner>/<repo>/discussions/comments 未鉴权时返回 403（实测），
+    //   要用它就得再配一个 GitHub token —— 刚出过凭据泄露的事，不想再加凭据。
+    // 改用仓库自带的公开 Atom 源：不需要任何 token。
+    // 代价：拿不到评论正文和评论人，只能知道「哪几篇文章有新讨论、什么时候更新」。
+    const res = await fetch('https://github.com/' + repo + '/discussions.atom', {
+      headers: { 'user-agent': 'vopth-notifier' }
+    });
     if (!res.ok) return { ok: false, note: 'HTTP ' + res.status };
-    const arr = await res.json();
-    const items = (Array.isArray(arr) ? arr : []).map((c) => ({
-      user: (c.user && c.user.login) || '?',
-      body: String(c.body || '').replace(/\s+/g, ' ').slice(0, 100),
-      at: c.created_at,
-      title: (c.discussion && c.discussion.title) || '',
-      url: c.html_url
-    }));
-    items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-    return { ok: true, items: items.slice(0, limit || 5) };
+    const xml = await res.text();
+
+    const entries = [];
+    const re = /<entry>([\s\S]*?)<\/entry>/g;
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      const seg = m[1];
+      const pick = (tag) => {
+        const mm = seg.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>'));
+        return mm ? mm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : '';
+      };
+      entries.push({
+        title: pick('title'),
+        at: pick('updated'),
+        url: (seg.match(/<link[^>]*href="([^"]+)"/) || [])[1] || '',
+        user: pick('name')
+      });
+    }
+    entries.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return { ok: true, items: entries.slice(0, limit || 5), source: 'atom' };
   } catch (e) {
     return { ok: false, note: String(e && e.message) };
   }
@@ -522,23 +545,25 @@ export async function sendStatusReport(env) {
     html += articleTable(arts, maxViews);
   }
 
-  html += h2('最新评论');
+  html += h2('最近有新评论的文章');
   if (!comments.ok) {
     html += '<div style="font-size:13px;color:#b45309;">获取失败：' + esc(comments.note) + '</div>';
   } else if (comments.items.length === 0) {
-    html += '<div style="font-size:13px;color:#8b949e;">还没有评论</div>';
+    html += '<div style="font-size:13px;color:#8b949e;">还没有讨论</div>';
   } else {
     for (const c of comments.items) {
       html += '<div style="border-left:3px solid #e6e8eb;padding:2px 0 2px 12px;margin:10px 0;">' +
-        '<div style="font-size:12px;color:#8b949e;">' +
-          '<b style="color:#4A6CF7;">' + esc(c.user) + '</b> · ' +
-          esc(String(c.at).slice(0, 16).replace('T', ' ')) +
-          (c.title ? ' · ' + esc(c.title) : '') +
-        '</div>' +
-        '<div style="font-size:13px;color:#374151;margin-top:4px;line-height:1.6;">' + esc(c.body) + '</div>' +
-        (c.url ? '<div style="font-size:12px;margin-top:3px;"><a href="' + esc(c.url) + '" style="color:#4A6CF7;">查看</a></div>' : '') +
+        '<div style="font-size:12px;color:#8b949e;">' + esc(bjTime(c.at)) + ' 有更新</div>' +
+        '<div style="font-size:14px;color:#1f2328;font-weight:600;margin-top:3px;">' +
+          esc(c.title || '(无标题)') + '</div>' +
+        (c.url ? '<div style="font-size:12px;margin-top:3px;"><a href="' + esc(c.url) + '" style="color:#4A6CF7;">去看讨论 →</a></div>' : '') +
       '</div>';
     }
+    html += '<div style="font-size:12px;color:#8b949e;margin-top:8px;line-height:1.7;">' +
+      '数据来自仓库的公开 Discussions Atom 源（免鉴权）。它只提供「哪篇有新讨论、何时更新」，' +
+      '不含评论正文与评论人 —— 读取正文的 REST / GraphQL 接口需要再配一个 GitHub token，' +
+      '暂时不想再增加凭据。' +
+      '</div>';
   }
 
   html += h2('运行状态');
@@ -575,10 +600,13 @@ export async function sendStatusReport(env) {
     T.push('     ' + a.url);
   });
   T.push('');
-  T.push('【最新评论】');
+  T.push('【最近有新评论的文章】');
   if (!comments.ok) T.push('  获取失败：' + comments.note);
-  else if (comments.items.length === 0) T.push('  还没有评论');
-  else for (const c of comments.items) T.push('  ' + c.user + ' @ ' + String(c.at).slice(0, 16) + '\n    ' + c.body);
+  else if (comments.items.length === 0) T.push('  还没有讨论');
+  else for (const c of comments.items) {
+    T.push('  ' + bjTime(c.at) + '  ' + (c.title || '(无标题)'));
+    if (c.url) T.push('    ' + c.url);
+  }
   T.push('');
   T.push('【运行状态】' + (online.ok ? '静态资源正常' : '静态资源异常') +
          '  HTTP ' + (online.status || '-') + '  ' + online.ms + ' ms');

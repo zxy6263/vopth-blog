@@ -44,6 +44,21 @@ function encodeHeader(str) {
   return '=?UTF-8?B?' + base64Utf8(str) + '?=';
 }
 
+/**
+ * 把 base64 按每 76 字符折行。
+ *
+ * ⚠️ 这一步不是可选的。SMTP 规定 DATA 里单行不能超过 998 字节，
+ * 而 HTML 正文常常是一整行几万字符 —— 实测把未折行的 20 KB HTML
+ * 直接发出去，QQ 服务器当场拒收（/api/report-test 返回 ok:false）。
+ * 用 base64 编码本身就把这个问题根治了：它的输出天然只有 base64 字符，
+ * 按规定折行后每行 76 字符，永远不会超限。
+ */
+function wrap76(str) {
+  const out = [];
+  for (let i = 0; i < str.length; i += 76) out.push(str.slice(i, i + 76));
+  return out.join(CRLF);
+}
+
 /** 正文按 SMTP 规矩转义：行首的 "." 要写成 ".."，换行统一成 CRLF */
 function dotStuff(text) {
   return String(text)
@@ -170,21 +185,21 @@ export async function sendMail(opts) {
       body = [
         '--' + boundary,
         'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
+        'Content-Transfer-Encoding: base64',
         '',
-        plain,
+        wrap76(base64Utf8(plain)),
         '--' + boundary,
         'Content-Type: text/html; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
+        'Content-Transfer-Encoding: base64',
         '',
-        rich,
+        wrap76(base64Utf8(rich)),
         '--' + boundary + '--',
         ''
       ].join(CRLF);
     } else {
       headers.push('Content-Type: text/plain; charset=UTF-8');
-      headers.push('Content-Transfer-Encoding: 8bit');
-      body = plain;
+      headers.push('Content-Transfer-Encoding: base64');
+      body = wrap76(base64Utf8(plain));
     }
 
     // dotStuff 统一做一次（它会顺手把换行规范成 CRLF）
