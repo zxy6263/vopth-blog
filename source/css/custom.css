@@ -699,3 +699,25 @@
 #post-info .post-meta-label {
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+ *  13. 页脚免责声明
+ *
+ *  内容是 _config.butterfly.yml → footer.custom_text 里追加的一行：
+ *     封面壁纸均来源于网络，侵权请联系删除
+ *  站点确实用了网络上的封面图和视频素材，写明「来源」和「怎么找我删」比
+ *  什么都不写稳妥；「联系」做成了可点的邮箱，别让人还得自己去找地址。
+ *
+ *  样式：比正常文字小一号、淡一点 —— 它是声明，不该抢视觉。
+ * ------------------------------------------------------------------------- */
+.footer-disclaimer {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85em;
+  opacity: 0.78;
+}
+
+.footer-disclaimer a {
+  color: inherit;
+  text-decoration: underline;
+}

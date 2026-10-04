@@ -146,7 +146,10 @@ footer:
   copyright:
     enable: true
     version: true
-  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a>'
+  # 页脚最下面那行是免责声明。
+  # 站点用了网络上的封面图和视频素材，把「来源」和「怎么找我删」写出来，
+  # 比什么都不写稳妥；「联系」做成可点的邮箱，别让人还得自己去找地址。
+  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a><br><span class="footer-disclaimer">封面壁纸均来源于网络，侵权请<a href="mailto:3585648116@qq.com">联系</a>删除</span>'
 
 # ------------------------------------------------------------------ 侧边栏
 aside:
