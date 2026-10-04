@@ -1,7 +1,7 @@
 ---
 title: 关于我
 date: 2026-10-03 00:00:00
-updated: 2026-10-03 00:00:00
+updated: 2026-10-05 06:20:00
 type: about
 # banner 用视频，由 source/js/banner-video.js 注入，
 # 并从视频池里随机挑一个（关于/归档/分类/标签/友链 共用同一个池）。
@@ -50,18 +50,6 @@ toc: false
 
 > **已经在吃灰的**：`openclaw` —— 一个开源、自托管的 AI 智能体执行网关。折腾过一阵，现在放在那儿了。
 
-## 技能点
-
-<div class="about-skills">
-  <div class="about-skill"><span>JavaScript / TypeScript</span><i style="--w:88%"></i></div>
-  <div class="about-skill"><span>Node.js / 后端</span><i style="--w:80%"></i></div>
-  <div class="about-skill"><span>前端 / 界面</span><i style="--w:78%"></i></div>
-  <div class="about-skill"><span>Python / 脚本</span><i style="--w:70%"></i></div>
-  <div class="about-skill"><span>运维 / 部署</span><i style="--w:65%"></i></div>
-</div>
-
-> 这不是简历，只是给自己看的兴趣分布图。数字是随缘写的，不必当真。
-
 ## 关于这个博客
 
 | | |
@@ -76,9 +64,9 @@ toc: false
 
 ## 关于留言
 
-这个博客目前**没有开启评论**。不是不想听反馈，是觉得为了几条评论专门维护一套后端服务不太值。
+评论区已经开了，用 giscus 搭的。评论数据都存在这个仓库的 GitHub Discussions 里，不占我自己的服务器，也不用额外掏钱。
 
-想找我聊天的话，邮件和 GitHub 都开着，随时欢迎：
+想说点什么，直接在文章下面写就行，用 GitHub 账号登录一下就能发。没有账号的话，邮件也可以。
 
 - 邮箱：[3585648116@qq.com](mailto:3585648116@qq.com)
 - GitHub：[@zxy6263](https://github.com/zxy6263)

@@ -286,15 +286,7 @@
   margin-top: 6px;
 }
 
-@media screen and (max-width: 768px) {
-  .about-hero {
-    padding: 14px 16px;
-  }
-  /* 手机上主题给容器的上内边距是 36px */
-  .about-hero:first-child {
-    margin-top: -18px;
-  }
-}
+
 
 .about-avatar {
   flex: 0 0 auto;
@@ -349,50 +341,22 @@
   transform: translateY(-2px);
 }
 
-.about-skills {
-  margin: 6px 0 18px;
-}
-
-.about-skill {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.about-skill span {
-  flex: 0 0 190px;
-  font-size: 0.9rem;
-  color: var(--font-color);
-}
-
-/* 用 i 元素当进度条，宽度由内联 --w 决定 */
-.about-skill i {
-  position: relative;
-  flex: 1 1 auto;
-  height: 8px;
-  font-style: normal;
-  border-radius: 999px;
-  background: var(--text-bg-hover);
-  overflow: hidden;
-}
-
-.about-skill i::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--w, 50%);
-  border-radius: 999px;
-  background: linear-gradient(90deg, #4a6cf7, #7c5cff);
-}
+/* 技能点那一段已经从关于页删掉了（站主要求），
+   原来这里的 .about-skills / .about-skill 规则一并清掉，不留死代码。 */
 
 @media screen and (max-width: 768px) {
   .about-hero {
     flex-direction: column;
-    padding: 20px 18px;
+    padding: 14px 16px;      /* 原来 20px 18px，和桌面端一起收紧 */
     text-align: center;
+  }
+
+  /* 手机上主题给内容容器的上内边距是 36px，这里提上来抵消大部分。
+     ⚠️ 这条必须和桌面的 -26px 放在【同一处】管理：
+        之前我把它单独写在文件靠前的位置，结果被这条媒体查询里的
+        padding 覆盖了 —— 两条规则分开写，就容易出这种互相打架的事。 */
+  .about-hero:first-child {
+    margin-top: -18px;
   }
 
   .about-avatar {
@@ -404,10 +368,7 @@
     justify-content: center;
   }
 
-  .about-skill span {
-    flex: 0 0 118px;
-    font-size: 0.82rem;
-  }
+  /* .about-skill span 的规则已随「技能点」那一段一起删掉 */
 }
 
 /* ---------------------------------------------------------------------------
