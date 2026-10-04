@@ -107,7 +107,10 @@ export async function sendMail(opts) {
   }
 
   // 发一条命令并检查应答
-  async function cmd(command, expectPrefixes) {
+  //   label：调试记录里显示成什么。凭据相关的命令必须传 label，
+  //   否则 base64 后的用户名/密码会原样进 steps，而 steps 是要返回给
+  //   调用方的 —— base64 可逆，等于把授权码明文送出去。
+  async function cmd(command, expectPrefixes, label) {
     if (command !== null) {
       await writer.write(TE.encode(command + CRLF));
     }
@@ -115,8 +118,10 @@ export async function sendMail(opts) {
     const last = lines[lines.length - 1];
     const code = parseInt(last.slice(0, 3), 10);
     const ok = expectPrefixes.some((p) => String(code).startsWith(String(p)));
-    steps.push((command === null ? '(greeting)' : command.replace(/^AUTH LOGIN.*/, 'AUTH LOGIN ***')) +
-      '  <-  ' + last.slice(0, 120));
+    const shown = label !== undefined
+      ? label
+      : (command === null ? '(greeting)' : command.replace(/^AUTH LOGIN.*/, 'AUTH LOGIN ***'));
+    steps.push(shown + '  <-  ' + last.slice(0, 120));
     if (!ok) {
       throw new Error('SMTP 第 ' + code + ' 步失败：' + last.slice(0, 200));
     }
@@ -131,9 +136,11 @@ export async function sendMail(opts) {
     await cmd('EHLO ' + (opts.helo || 'vopth.xyz'), [2]);
 
     // 3. AUTH LOGIN（用户名、密码分别 base64）
+    //    这两步的 label 必须显式给：默认会把命令原文写进 steps，
+    //    而这里命令原文就是凭据的 base64。
     await cmd('AUTH LOGIN', [3]);
-    await cmd(base64Utf8(user), [3]);
-    await cmd(base64Utf8(pass), [2]);
+    await cmd(base64Utf8(user), [3], '(用户名 base64 · 已隐去)');
+    await cmd(base64Utf8(pass), [2], '(密码 base64 · 已隐去)');
 
     // 4. 信封 + 正文
     await cmd('MAIL FROM:<' + from + '>', [2]);
@@ -152,7 +159,8 @@ export async function sendMail(opts) {
     ].join(CRLF);
 
     const payload = headers + CRLF + CRLF + dotStuff(text || '') + CRLF + '.';
-    await cmd(payload, [2]);
+    // 同样给 label：默认会把整封信（含正文）写进 steps
+    await cmd(payload, [2], 'DATA (' + payload.length + ' 字节 · 正文已隐去)');
 
     // 5. 礼貌收尾
     try { await cmd('QUIT', [2]); } catch (e) { /* 收尾失败无所谓 */ }
