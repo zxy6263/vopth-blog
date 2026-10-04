@@ -66,27 +66,49 @@ if ($drive -and -not (Test-Path ($drive + '\'))) {
   exit 1
 }
 
+# --- safety: never mirror into something that could eat the repo -------------
+function Normalize([string]$p) {
+  try { return ([System.IO.Path]::GetFullPath($p)).TrimEnd('\').ToLower() } catch { return '' }
+}
+$destFull = Normalize $Dest
+$repoFull = Normalize $RepoRoot
+if ($destFull -eq '' -or $destFull -eq $repoFull -or $repoFull.StartsWith($destFull + '\')) {
+  Say ''
+  Say ("  [FAIL] refusing to write: Dest (" + $Dest + ") is empty or contains the repo.") 'Red'
+  Say '         /MIR deletes extra files on the target, so this guard matters.' 'Red'
+  exit 1
+}
+
 # --- create layout ---------------------------------------------------------
-#   <Dest>\<folder>            latest copy, easy to read
-#   <Dest>\snapshots\<stamp>\  point-in-time copy, survives a bad edit
+#   <Dest>\<folder>            latest copy, an exact mirror of the source
+#   <Dest>\snapshots\<stamp>\  point-in-time copy, never touched again
 foreach ($f in $found) {
   New-Item -ItemType Directory -Path (Join-Path $Dest $f) -Force | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $Dest ('snapshots\' + $Stamp + '\' + $f)) -Force | Out-Null
 }
 
 # --- copy ------------------------------------------------------------------
+#   latest copy  -> /MIR  (mirror: also DELETES files that no longer exist in
+#                          the source. Needed because the memory store prunes
+#                          old index shards, and with /E those stale shards
+#                          pile up forever and the verify step below would
+#                          fail on every single run.)
+#   snapshot     -> /E    (additive: a point-in-time record must not be altered)
 Say ''
 Say '--- copying ---'
 foreach ($f in $found) {
   $from = Join-Path $RepoRoot $f
-  foreach ($to in @((Join-Path $Dest $f), (Join-Path $Dest ('snapshots\' + $Stamp + '\' + $f)))) {
-    # /E copy subdirs including empty ones; never delete anything on the target
-    & robocopy $from $to /E /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
+  $jobs = @(
+    @{ to = (Join-Path $Dest $f);                                mode = '/MIR'; what = 'latest (mirror)' },
+    @{ to = (Join-Path $Dest ('snapshots\' + $Stamp + '\' + $f)); mode = '/E';   what = 'snapshot' }
+  )
+  foreach ($j in $jobs) {
+    & robocopy $from $j.to $j.mode /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
     $code = $LASTEXITCODE
     # robocopy: 0-7 mean success, >=8 means failure
     $ok = $code -lt 8
     $mark = if ($ok) { '[ OK ]' } else { '[FAIL]' }
-    Say ("  " + $mark + " " + $f + "  ->  " + $to.Replace($Dest, '.')) $(if ($ok) { 'Gray' } else { 'Red' })
+    Say ("  " + $mark + " " + $f + "  ->  " + $j.to.Replace($Dest, '.') + "  (" + $j.what + ")") $(if ($ok) { 'Gray' } else { 'Red' })
     if (-not $ok) { Say ("         robocopy exit code " + $code) 'Red' }
   }
 }
