@@ -1,11 +1,20 @@
 ---
 title: 订阅本站
 date: 2026-10-03 00:00:00
-updated: 2026-10-03 00:00:00
+updated: 2026-10-05 07:10:00
 comments: false
 toc: false
 keywords: RSS,订阅,Atom,Feedly
 description: 用 RSS 订阅 vopth.xyz —— 没有算法推荐，没有广告，新文章自动送到你面前。
+# banner 用视频，由 source/js/banner-video.js 注入，
+# 并从视频池里随机挑一个（关于/归档/分类/标签/友链/订阅 共用同一个池）。
+# 这里指向视频的一帧作为「海报图」：JS 没跑、加载失败、
+# 或用户开了「减少动态效果」时，看到的是这张静态图而不是主题默认图。
+#
+# ⚠️ 这两处必须配套：top_img 指向海报图之外，还得把 '/subscribe/' 加进
+#    banner-video.js 的 POOL_PAGES —— 只做一半的话，页面既不播视频、
+#    又还是那张默认图。
+top_img: /videos/banner-1-poster.jpg
 ---
 
 <div class="subscribe-hero">
