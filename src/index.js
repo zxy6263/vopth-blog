@@ -33,6 +33,7 @@
  */
 
 import { sendMail } from './mail.js';
+import { checkMilestones, sendStatusReport } from './notify.js';
 
 const KV_PREFIX = 'pv:';
 const TOTAL_KEY = KV_PREFIX + '__total__';
@@ -121,7 +122,7 @@ async function bump(env, key) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const p = url.pathname;
 
@@ -162,6 +163,23 @@ export default {
       }
     }
 
+    // ------------------------------------------------------------------
+    //  手动触发一封状态报告（同样是测试用，受 MAIL_TEST_KEY 保护）
+    //  用法：/api/report-test?key=<MAIL_TEST_KEY>
+    //  ------------------------------------------------------------------
+    if (p === '/api/report-test') {
+      const rk = url.searchParams.get('key') || '';
+      if (!env.MAIL_TEST_KEY || rk !== env.MAIL_TEST_KEY) {
+        return json({ error: 'forbidden' }, 403);
+      }
+      try {
+        const r = await sendStatusReport(env);
+        return json({ ok: r.ok, total: r.total, pages: r.pages, online: r.online });
+      } catch (e) {
+        return json({ ok: false, error: String(e && e.message) }, 500);
+      }
+    }
+
     if (p === '/api/views' || p === '/api/views/') {
       if (request.method === 'OPTIONS') {
         return new Response(null, { status: 204, headers: corsHeaders() });
@@ -176,6 +194,15 @@ export default {
       try {
         if (request.method === 'POST') {
           const r = await bump(env, key);
+          // 里程碑检测（可能发信，几秒钟）不要挡在访客请求的前面：
+          // 丢进 waitUntil，响应立刻返回，发信在后台继续。
+          if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(
+              checkMilestones(env, path, r).catch((e) => {
+                console.log('[notify] checkMilestones 异常：' + (e && e.message));
+              })
+            );
+          }
           return json({ path: path, views: r.views, total: r.total });
         }
         if (request.method === 'GET') {
@@ -191,5 +218,20 @@ export default {
 
     // 其余请求：原样交给静态资源
     return env.ASSETS.fetch(request);
+  },
+
+  /**
+   * 定时任务（wrangler.jsonc 里的 triggers.crons 配的）
+   * 每 3 小时发一封状态报告。
+   */
+  async scheduled(event, env, ctx) {
+    const run = sendStatusReport(env).catch((e) => {
+      console.log('[cron] 状态报告失败：' + (e && e.message));
+    });
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(run);
+    } else {
+      await run;
+    }
   }
 };
