@@ -36,6 +36,36 @@ function fail(msg) {
 
 if (!fs.existsSync(SRC)) fail('找不到 ' + SRC);
 
+// ---- 第一步：查源码里有没有"多余的反引号" ------------------------------
+//
+// 必须放在【导入之前】。踩过：模板被提前结束时，导入会先失败并抛出
+// "Unexpected token ..." 这种看不懂的错误，根本走不到这里。
+// 而这条检查是纯文本的，不需要模块能跑起来。
+//
+// ADMIN_PAGE 整体是一个模板字符串，源码里应该【只有】开头和结尾两个反引号。
+// 中间再出现一个（代码块片段的三个反引号、甚至注释里举例用的反引号），
+// 模板就会被提前结束，整份文件变成语法错误。
+const srcLines = fs.readFileSync(SRC, 'utf8').split(/\r?\n/);
+const btLines = [];
+srcLines.forEach((l, i) => { if (l.indexOf('\u0060') !== -1) btLines.push(i + 1); });
+
+if (btLines.length > 2) {
+  const extra = btLines.slice(1, -1);
+  const bt = '\u0060';
+  console.log('[FAIL] 模板字符串里有多余的反引号，会把模板提前结束：');
+  console.log('        模板起于第 ' + btLines[0] + ' 行、止于第 ' + btLines[btLines.length - 1] + ' 行');
+  console.log('        多余的在第 ' + extra.join(', ') + ' 行：');
+  extra.slice(0, 5).forEach((n) => {
+    console.log('          ' + n + ' | ' + srcLines[n - 1].trim().slice(0, 100));
+  });
+  console.log('        修法：拼出来，写成 FENCE = ' + "String.fromCharCode(96)" + ' 重复三次，');
+  console.log('        或者用转义 \\u0060 —— 总之不要在模板里直接写那个字符。');
+  fail('源码里有 ' + extra.length + ' 处多余的反引号');
+}
+console.log('[ OK ] 模板字符串起止干净（源码里只有首尾两个反引号）');
+
+// ---- 第二步：导入模块，抽出 <script> 做语法检查 --------------------------
+
 // admin-page.js 是 ESM，node 直接 require 不了；复制成 .mjs 再动态 import
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-page-check-'));
 const tmpModule = path.join(tmpDir, 'admin-page.mjs');

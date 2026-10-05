@@ -80,6 +80,16 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   input[type=text]:focus, textarea:focus { border-color: var(--accent); }
   textarea { min-height: 44vh; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 14px; line-height: 1.7; }
   input[type=file] { font: inherit; color: var(--text); }
+
+  /* Markdown 快捷工具条：往正文里插标签片段 */
+  .md-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .md-tools button {
+    padding: 5px 12px; font-size: 13px; font-weight: 400; border-radius: 7px;
+    color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .md-tools button:hover { border-color: var(--accent); color: var(--accent); }
+  .md-tools .sep { width: 1px; background: var(--line); margin: 2px 2px; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   button {
@@ -175,6 +185,20 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
 
     <div class="card">
       <label for="content">正文（Markdown）</label>
+      <div class="md-tools" id="mdTools">
+        <button type="button" data-insert="skeleton">文章骨架</button>
+        <span class="sep"></span>
+        <button type="button" data-insert="note-info">提示</button>
+        <button type="button" data-insert="note-warning">警告</button>
+        <button type="button" data-insert="note-danger">危险</button>
+        <button type="button" data-insert="label">标签</button>
+        <button type="button" data-insert="btn">按钮</button>
+        <button type="button" data-insert="tabs">分栏</button>
+        <button type="button" data-insert="hide">折叠</button>
+        <span class="sep"></span>
+        <button type="button" data-insert="code">代码块</button>
+        <button type="button" data-insert="img">图片</button>
+      </div>
       <textarea id="content" placeholder="写点什么…"></textarea>
       <div class="hint">图片请放在仓库 source/img/ 里，正文用 /img/文件名 引用（手机上可以先写文字，图片回电脑补）</div>
     </div>
@@ -316,6 +340,87 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     $('coverPreview').style.backgroundImage = '';
     $('coverPreview').textContent = '未选择';
     say('', '');
+  });
+
+  // ---------------------------------------------------------- Markdown 快捷插入
+  //
+  // 语法全部照抄站点里那篇《Hexo 写作速查》，不凭记忆写 —— 主题版本不同语法会有差异。
+  // 行为：把片段插到光标处（有选中文字就用选中的文字替换占位），插完选中占位文字，
+  // 这样直接打字就能盖掉它，不用手动删。
+  // ⚠️ 三个反引号必须这样拼出来，不能直接写。
+  //    这个文件整体包在模板字符串里（String.raw 那种），直接写反引号会把模板
+  //    提前结束，整份文件变成语法错误。
+  //    2026-10-06 连踩两次：第一次是在代码块片段里写了三个反引号；
+  //    第二次更离谱 —— 是在【解释这件事的注释】里写了反引号当例子。
+  //    所以这段注释里一个反引号都不能有，只能说"反引号"三个字。
+  //    幸好 tools/check-admin-page.js 能查出来（现在它会先查文本再导入，
+  //    否则会先炸在导入阶段、给出看不懂的错误）。
+  var FENCE = '\u0060\u0060\u0060';
+
+  var SNIPPETS = {
+    'note-info':    { pre: '{% note info flat %}\n',    post: '\n{% endnote %}',  ph: '这里写提示内容' },
+    'note-warning': { pre: '{% note warning flat %}\n', post: '\n{% endnote %}',  ph: '这里写警告内容' },
+    'note-danger':  { pre: '{% note danger flat %}\n',  post: '\n{% endnote %}',  ph: '这里写危险内容' },
+    'label':        { pre: '{% label ',                post: ' primary %}',      ph: '文字' },
+    'btn':          { pre: "{% btn '",                  post: "',链接文字,fas fa-link,outline %}", ph: 'https://example.com' },
+    'tabs':         { pre: '{% tabs 组名, 1 %}\n<!-- tab 标签一 -->\n',
+                      post: '\n<!-- endtab -->\n\n<!-- tab 标签二 -->\n内容二\n<!-- endtab -->\n{% endtabs %}',
+                      ph: '内容一' },
+    'hide':         { pre: '{% hideToggle ',            post: ' %}\n这里写被折叠的内容\n{% endhideToggle %}', ph: '点击展开' },
+    'code':         { pre: FENCE + '\n',                post: '\n' + FENCE,      ph: '代码' },
+    'img':          { pre: '![',                        post: '](/img/图片文件名)', ph: '图片描述' }
+  };
+
+  var SKELETON = [
+    '先用一两句话把事情说清楚：发生了什么、结论是什么。',
+    '',
+    '## 背景',
+    '',
+    '为什么要写这篇。',
+    '',
+    '## 正文',
+    '',
+    '主体内容。',
+    '',
+    '## 最后',
+    '',
+    '收个尾，或者留个待办。'
+  ].join('\n');
+
+  function insertInto(textarea, text, selStart, selEnd, selectFrom, selectTo) {
+    var before = textarea.value.slice(0, selStart);
+    var after = textarea.value.slice(selEnd);
+    textarea.value = before + text + after;
+    textarea.focus();
+    var a = selStart + selectFrom;
+    var b = selStart + selectTo;
+    textarea.setSelectionRange(a, b);
+    // 手动触发一次 input，让草稿保存跟上
+    textarea.dispatchEvent(new Event('input'));
+  }
+
+  $('mdTools').addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('button[data-insert]') : null;
+    if (!btn) return;
+    var key = btn.getAttribute('data-insert');
+    var ta = $('content');
+    var s = ta.selectionStart;
+    var e = ta.selectionEnd;
+    var selected = ta.value.slice(s, e);
+
+    if (key === 'skeleton') {
+      if (ta.value.trim() && !confirm('正文里已经有内容了，确定插入骨架吗？（会插在光标处）')) return;
+      insertInto(ta, SKELETON, s, e, 0, SKELETON.length);
+      return;
+    }
+
+    var snap = SNIPPETS[key];
+    if (!snap) return;
+    var body = selected || snap.ph;
+    var text = snap.pre + body + snap.post;
+    // 有选中文字就整段选中插进去的内容，没选中就只选中占位文字方便直接改写
+    if (selected) insertInto(ta, text, s, e, 0, text.length);
+    else insertInto(ta, text, s, e, snap.pre.length, snap.pre.length + snap.ph.length);
   });
 
   // ---------------------------------------------------------- 清空 / 发布
