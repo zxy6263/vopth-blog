@@ -744,7 +744,7 @@ Worker 里再用 Access 的公钥做**真正的 JWT 签名校验**（`src/access
 
 | 文件 | 做什么 |
 |---|---|
-| `src/index.js` | 路由：`/admin/` 返回页面；`/api/admin/post` 提交；`/api/admin/dry-run` 干跑（只回生成好的 Markdown 不提交） |
+| `src/index.js` | 路由：`/admin/` 返回页面；`/admin/api/post` 提交；`/admin/api/dry-run` 干跑（只回生成好的 Markdown 不提交） |
 | `src/access.js` | Access 鉴权：RS256 真签名校验 + `iss` / `aud` / `exp` 检查，失败一律拒绝 |
 | `src/admin.js` | 拼 front-matter（上海时间、真实秒数，纯函数可单测）+ 调 GitHub REST API |
 | `src/admin-page.js` | 后台页面的 HTML：手机优先、自动存本地草稿、防重复提交 |
@@ -755,10 +755,10 @@ Worker 里再用 Access 的公钥做**真正的 JWT 签名校验**（`src/access
    只勾 `vopth-blog` 这一个仓库 → 权限 **Contents: Read and write**（别多给）→ 生成后
    `npx wrangler secret put GITHUB_TOKEN`
 2. **Cloudflare Access**：Zero Trust → Access → Applications → Add → Self-hosted，
-   ⚠️ **要建两条**：`vopth.xyz` + path `admin`，以及 `vopth.xyz` + path `api/admin`。
+   ⚠️ **要建两条**：`vopth.xyz` + path `admin`，以及 `vopth.xyz` + path `admin`（一个应用就够，见下）。
    每条加一个 Allow 策略（Include = 你的邮箱）。
    > 为什么必须两条：Access 是**按路径**拦并注入 JWT 头的。只保护 `/admin` 的话，页面能打开，
-   > 但它后面调 `/api/admin/post` 时拿不到那个头，Worker 会（正确地）拒绝 —— 表现就是「登录了却发不出去」。
+   > 但它后面调 `/admin/api/post` 时拿不到那个头，Worker 会（正确地）拒绝 —— 表现就是「登录了却发不出去」。
 3. 把应用详情页的 **AUD** 和团队域名填进 `wrangler.jsonc` 的 `vars`（模板里已经注释好了）：
    ```jsonc
    "ACCESS_TEAM_DOMAIN": "你的团队名.cloudflareaccess.com",

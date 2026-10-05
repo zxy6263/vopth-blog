@@ -247,11 +247,19 @@ export default {
 
     // ------------------------------------------------------------------
     //  后台的两个接口。两个都必须通过 Access 鉴权。
-    //    POST /api/admin/post     真提交：写进 GitHub 仓库，触发自动构建
-    //    POST /api/admin/dry-run  干跑：只返回生成好的 Markdown，不提交
+    //    POST /admin/api/post     真提交：写进 GitHub 仓库，触发自动构建
+    //    POST /admin/api/dry-run  干跑：只返回生成好的 Markdown，不提交
     //                             （用来确认 front-matter 长什么样）
+    //
+    //  ⚠️ 路径刻意放在 /admin/ 下面，而不是 /api/admin/。
+    //     原因：Cloudflare Access 的 CF_Authorization cookie 是存在【域名】上的，
+    //     而它带着 AUD。如果页面和接口挂在两个不同的 Access 应用上，登录页面
+    //     拿到的 cookie 对接口那个应用是"aud 不匹配"的，于是接口又把你踢去登录页 ——
+    //     fetch 跟着跳到一个跨域地址，浏览器判定 CORS 失败，前端只看到
+    //     "Failed to fetch"。放在 /admin/ 下就只有一个 Access 应用、一个会话，
+    //     没这个问题（Access 的路径是前缀匹配，配了 admin 就覆盖 admin/api/*）。
     //  ------------------------------------------------------------------
-    if (p === '/api/admin/post' || p === '/api/admin/dry-run') {
+    if (p === '/admin/api/post' || p === '/admin/api/dry-run') {
       if (request.method !== 'POST') {
         return json({ error: 'method not allowed' }, 405);
       }
@@ -276,7 +284,7 @@ export default {
         content: String(body.content || '')
       };
 
-      if (p === '/api/admin/dry-run') {
+      if (p === '/admin/api/dry-run') {
         return json({
           ok: true,
           dryRun: true,

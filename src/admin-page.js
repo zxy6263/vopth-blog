@@ -198,7 +198,7 @@ export const ADMIN_PAGE = `<!doctype html>
     say('', '正在提交…');
     msg.className = '';
 
-    fetch('/api/admin/post', {
+    fetch('/admin/api/post', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
@@ -223,7 +223,14 @@ export const ADMIN_PAGE = `<!doctype html>
       }
     }).catch(function (e) {
       btn.disabled = false;
-      say('bad', '请求出错：' + (e && e.message ? e.message : e));
+      // 「Failed to fetch」这个原生报错对使用者毫无信息量，所以补上最可能的原因。
+      // 最常见的一种：请求被 Cloudflare Access 又拦了一次、跳去了登录页，
+      // 而那个地址是跨域的，浏览器就只报一句 Failed to fetch。
+      say('bad',
+        '请求出错：' + (e && e.message ? e.message : e) + '\n\n' +
+        '最可能的原因：这个请求又被 Cloudflare Access 拦了一次（跳去了登录页）。\n' +
+        '按 F12 → Network，看那条请求是不是 302 到 cloudflareaccess.com ——\n' +
+        '如果是，说明页面和接口挂在了两个不同的 Access 应用上（同一个域名下会互相抢登录 cookie）。');
     });
   });
 
