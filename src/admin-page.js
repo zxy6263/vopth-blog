@@ -11,9 +11,18 @@
  *
  * 注意：下面的 HTML/JS 里刻意不用模板字符串（反引号），
  * 因为这个文件本身就是用模板字符串包起来的，嵌套会打架。一律用 + 拼接。
+ *
+ * ⚠️ 用 String.raw 而不是普通模板字符串 —— 这一条是血的教训（2026-10-06）：
+ *    页面脚本里有 '\n\n' 这种换行转义，普通模板字符串会把它【求值成真正的换行】，
+ *    于是产出的 <script> 里字符串中间出现裸换行 → SyntaxError → 整段脚本不执行。
+ *    症状是「按钮全按不了、自动保存也没了」，而页面看起来完全正常，静态读代码
+ *    也看不出来。String.raw 保留反斜杠原样，'\n' 就真的是 JS 的换行转义了。
+ *
+ *    配套：tools/check-admin-page.js 会把产出的 <script> 抽出来做语法检查，
+ *    改完这个文件务必跑一次（npm run check:admin）。
  */
 
-export const ADMIN_PAGE = `<!doctype html>
+export const ADMIN_PAGE = String.raw`<!doctype html>
 <html lang="zh-CN" data-theme="auto">
 <head>
 <meta charset="utf-8">

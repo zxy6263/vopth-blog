@@ -11,7 +11,8 @@
     "new": "hexo new",
     "new-post": "node tools/new-post.js",
     "del-post": "node tools/del-post.js",
-    "deploy": "hexo deploy"
+    "deploy": "hexo deploy",
+    "check:admin": "node tools/check-admin-page.js"
   },
   "engines": {
     "node": ">=20"
