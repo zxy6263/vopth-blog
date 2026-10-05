@@ -698,7 +698,7 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ slug: body.slug, deleteAt: deleteAt })
+          body: JSON.stringify({ slug: body.slug, deleteAt: deleteAt, fromPost: true })
         }).then(function (r2) {
           return r2.json().then(function (j) { return { status: r2.status, body: j }; });
         }).then(function (r2) {

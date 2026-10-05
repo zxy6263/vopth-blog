@@ -469,8 +469,16 @@ export async function scheduleCreate(env, post, atEpoch, deleteAtEpoch) {
   return { ok: true, scheduled: true, key: key, deleteKey: delKey, at: atEpoch };
 }
 
-/** 给一篇已经发出去的文章排一个到点删除 */
-export async function scheduleDelete(env, slug, atEpoch) {
+/**
+ * 给一篇已经发出去的文章排一个到点删除。
+ *
+ * @param {boolean} skipCheck 跳过"文件必须已存在"的检查。
+ *   为什么需要：刚发完文章的瞬间，GitHub 的 contents API 可能还读不到那个新文件
+ *   （实际踩过：发布 03:52:21、紧接着的排期请求 getFile 返回 404，
+ *   于是排期静默没建上，界面上只有一句"没排上"，很容易被忽略）。
+ *   调用方在"我刚刚亲手提交了这个文件"时可以传 true 跳过检查。
+ */
+export async function scheduleDelete(env, slug, atEpoch, skipCheck) {
   if (!isValidSlug(slug)) {
     return { ok: false, status: 400, error: '文件名不合法' };
   }
@@ -478,11 +486,13 @@ export async function scheduleDelete(env, slug, atEpoch) {
   if (!Number.isFinite(atEpoch) || atEpoch < now - 60) {
     return { ok: false, status: 400, error: '删除时间必须是将来' };
   }
-  try {
-    const existing = await getFile(env, POSTS_DIR + slug + '.md');
-    if (!existing) return { ok: false, status: 404, error: POSTS_DIR + slug + '.md 不存在' };
-  } catch (e) {
-    return { ok: false, status: 500, error: '检查文件失败：' + String(e && e.message) };
+  if (!skipCheck) {
+    try {
+      const existing = await getFile(env, POSTS_DIR + slug + '.md');
+      if (!existing) return { ok: false, status: 404, error: POSTS_DIR + slug + '.md 不存在' };
+    } catch (e) {
+      return { ok: false, status: 500, error: '检查文件失败：' + String(e && e.message) };
+    }
   }
   const key = scheduleKey(atEpoch);
   await env.PAGEVIEWS.put(key, JSON.stringify({ type: 'delete', slug: slug, at: atEpoch, tries: 0 }));
@@ -630,6 +640,57 @@ async function writeHeartbeat(env, result, via) {
       { expirationTtl: 7 * 24 * 3600 }
     );
   } catch (e) { /* 忽略 */ }
+}
+
+/**
+ * 公开的排期健康检查。
+ *
+ * 为什么做成公开的
+ *   排期有没有存下、cron 有没有在跑、上次执行有没有抛异常 —— 这三件事原来只能在
+ *   后台看（而 /admin/ 有 Cloudflare Access 挡着），于是每次排查都要站主帮我截图念一遍，
+ *   一来一回特别慢。这个接口把这三个信息暴露出来，我自己 curl 一下就能看。
+ *
+ * ⚠️ 只暴露"数量和时刻"，绝不暴露 slug（slug 就是文章文件名，等于泄露没发布的草稿标题）。
+ */
+export async function scheduleStatus(env) {
+  const now = Math.floor(Date.now() / 1000);
+  const out = { ok: true, now: now, nowText: new Date(now * 1000).toISOString() };
+
+  try {
+    const page = await env.PAGEVIEWS.list({ prefix: SCHED_PREFIX, limit: 100 });
+    const items = [];
+    for (const k of page.keys) {
+      const raw = await env.PAGEVIEWS.get(k.name);
+      if (!raw) continue;
+      try {
+        const it = JSON.parse(raw);
+        items.push({
+          type: it.type,
+          at: it.at,
+          atText: new Date(it.at * 1000).toISOString(),
+          due: it.at <= now,
+          tries: it.tries || 0,
+          // 只给"有没有封面"，不给 slug / 标题
+          hasCover: !!(it.post && it.post.cover && it.post.cover.base64)
+        });
+      } catch (e) { /* 坏数据忽略 */ }
+    }
+    items.sort((a, b) => a.at - b.at);
+    out.pendingCount = items.length;
+    out.dueNow = items.filter((i) => i.due).length;
+    out.pending = items.slice(0, 10);
+  } catch (e) {
+    out.listError = String(e && e.message);
+  }
+
+  try {
+    const raw = await env.PAGEVIEWS.get(HEARTBEAT_KEY);
+    out.lastRun = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    out.hbError = String(e && e.message);
+  }
+
+  return out;
 }
 
 /**

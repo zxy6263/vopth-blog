@@ -38,7 +38,7 @@ import { verifyAccess } from './access.js';
 import {
   createPost, buildMarkdown, listPosts, deletePost,
   scheduleCreate, scheduleDelete, listScheduled, cancelScheduled,
-  runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure
+  runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure, scheduleStatus
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 
@@ -335,8 +335,17 @@ export default {
       }
 
       // 给已发表的文章排一个到点删除
-      if (action === 'schedule-delete') {        try {
-          const r = await scheduleDelete(env, String(body.slug || '').trim().toLowerCase(), Number(body.deleteAt));
+      if (action === 'schedule-delete') {
+        try {
+          // fromPost=true 表示"这是我刚亲手提交的文章"，跳过存在性检查 ——
+          // 刚提交完立刻查 GitHub，contents API 可能还没同步到，会误判成不存在，
+          // 于是排期静默没建上（实际踩过）。
+          const r = await scheduleDelete(
+            env,
+            String(body.slug || '').trim().toLowerCase(),
+            Number(body.deleteAt),
+            !!body.fromPost
+          );
           return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
         } catch (e) {
           return json({ ok: false, error: '排期失败：' + String(e && e.message) }, 500);
@@ -404,6 +413,18 @@ export default {
         return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
       } catch (e) {
         return json({ ok: false, error: '提交失败：' + String(e && e.message) }, 500);
+      }
+    }
+
+    // 公开的排期健康检查。故意不鉴权 —— 排期有没有存下、cron 有没有在跑、
+    // 上次执行有没有抛异常，这三件事原来只能在有 Access 的后台看，
+    // 每次排查都要人肉念一遍，太慢。这里只给"数量和时刻"，不给 slug / 标题。
+    if (p === '/api/sched-status' || p === '/api/sched-status/') {
+      try {
+        const st = await scheduleStatus(env);
+        return json(st, 200, { 'cache-control': 'no-store' });
+      } catch (e) {
+        return json({ ok: false, error: String(e && e.message) }, 500, { 'cache-control': 'no-store' });
       }
     }
 
