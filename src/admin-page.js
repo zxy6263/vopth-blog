@@ -275,11 +275,16 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     <div class="card">
       <div class="actions" style="justify-content:space-between">
         <span id="schedInfo" class="hint" style="margin:0">正在读取排期…</span>
-        <button class="ghost" id="schedRefresh">刷新</button>
+        <span>
+          <button class="ghost" id="schedRun">立即执行一次</button>
+          <button class="ghost" id="schedRefresh">刷新</button>
+        </span>
       </div>
       <div id="schedList" style="margin-top:10px"></div>
-      <div class="hint" style="margin-top:12px">
-        这里是还没执行的定时任务（定时发布 / 限时删除）。Worker 每 5 分钟检查一次。
+      <div class="hint" id="cronInfo" style="margin-top:10px"></div>
+      <div class="hint" style="margin-top:10px">
+        这里是还没执行的定时任务（定时发布 / 限时删除）。Worker 每 5 分钟检查一次。<br>
+        「立即执行一次」是手动跑同一段逻辑 —— 如果手动能跑、定时不跑，那就是 cron 没生效。
       </div>
     </div>
   </div>
@@ -832,12 +837,51 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
           return;
         }
         renderSched(res.body.items || []);
+        var lr = res.body.lastRun;
+        var line = $('cronInfo');
+        if (lr && lr.at) {
+          line.textContent = '定时任务上次运行：' + fmtTime(lr.at)
+            + '（检查 ' + lr.checked + ' 条，完成 ' + ((lr.done || []).length)
+            + '，失败 ' + ((lr.failed || []).length) + '）';
+        } else {
+          line.textContent = '⚠️ 定时任务从来没运行过 —— 说明 cron 没生效。'
+            + '先点右边「立即执行一次」手动跑，能跑通就说明是 cron 没配上的问题。';
+        }
       })
       .catch(function (e) {
         $('schedInfo').textContent = '请求出错：' + (e && e.message ? e.message : e);
       });
   }
   $('schedRefresh').addEventListener('click', loadSched);
+  $('schedRun').addEventListener('click', function () {
+    var btn = $('schedRun');
+    btn.disabled = true;
+    say('', '正在手动执行一次定时任务…');
+    fetch('/admin/api/schedule-run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: '{}'
+    }).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, body: j }; });
+    }).then(function (res) {
+      btn.disabled = false;
+      if (res.body && res.body.ok) {
+        var t = '手动执行完成：检查 ' + res.body.checked + ' 条';
+        if (res.body.done.length) t += '\n已完成：' + res.body.done.join('；');
+        if (res.body.failed.length) t += '\n失败（会重试）：' + res.body.failed.join('；');
+        if (res.body.givenUp.length) t += '\n已放弃：' + res.body.givenUp.join('；');
+        if (!res.body.done.length && !res.body.failed.length) t += '\n（没有到点的任务）';
+        say('ok', t);
+        loadSched();
+      } else {
+        say('bad', '执行失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    }).catch(function (e) {
+      btn.disabled = false;
+      say('bad', '请求出错：' + (e && e.message ? e.message : e));
+    });
+  });
 
   function fmtTime(sec) {
     return new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false });

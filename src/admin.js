@@ -399,6 +399,9 @@ export async function deletePost(env, slug) {
 
 const SCHED_PREFIX = 'sched:';
 const SCHED_MAX_TRIES = 5;
+// 心跳：每次定时任务跑完都写一次，用来回答「定时任务到底有没有在跑」。
+// ⚠️ 不能用 sched: 前缀 —— 那会被当成一条排期。
+const HEARTBEAT_KEY = 'cron:lastrun';
 
 function scheduleKey(atEpoch) {
   return SCHED_PREFIX + String(atEpoch) + ':' + crypto.randomUUID().slice(0, 8);
@@ -474,8 +477,7 @@ export async function scheduleDelete(env, slug, atEpoch) {
   return { ok: true, scheduled: true, key: key, at: atEpoch };
 }
 
-/** 列出所有排期（按时间正序） */
-export async function listScheduled(env) {
+/** 列出所有排期（按时间正序）+ 定时任务的心跳 */export async function listScheduled(env) {
   const out = [];
   let cursor = undefined;
   for (let i = 0; i < 5; i++) {          // 最多翻 5 页，够用了
@@ -499,7 +501,21 @@ export async function listScheduled(env) {
     cursor = page.cursor;
   }
   out.sort((a, b) => a.at - b.at);
-  return { ok: true, count: out.length, items: out };
+
+  // 心跳：定时任务上次跑的时间 + 上次结果。看不到它就是「从来没跑过」——
+  // 那说明 cron 没配上（部署时没同步、或者 Cron Triggers 没生效）。
+  let lastRun = null;
+  try {
+    const raw = await env.PAGEVIEWS.get(HEARTBEAT_KEY);
+    if (raw) lastRun = JSON.parse(raw);
+  } catch (e) { /* 读不到就当没有 */ }
+
+  return { ok: true, count: out.length, items: out, lastRun: lastRun };
+}
+
+/** 立刻手动跑一遍到点的排期（用来验证定时任务是否正常，不用等 5 分钟） */
+export async function runDueSchedulesNow(env) {
+  return await runDueSchedules(env);
 }
 
 /** 取消一个排期 */
@@ -572,5 +588,35 @@ export async function runDueSchedules(env) {
     }
   }
 
-  return { ok: true, checked: keys.length, done: done, failed: failed, givenUp: givenUp };
+  const result = { ok: true, checked: keys.length, done: done, failed: failed, givenUp: givenUp };
+  await writeHeartbeat(env, result);
+  return result;
+}
+
+/**
+ * 写心跳。放最后、并且单独 try —— 心跳失败绝不能影响真正的发布/删除。
+ */
+async function writeHeartbeat(env, result) {
+  try {
+    await env.PAGEVIEWS.put(
+      HEARTBEAT_KEY,
+      JSON.stringify({
+        at: Math.floor(Date.now() / 1000),
+        checked: result.checked,
+        done: result.done,
+        failed: result.failed,
+        givenUp: result.givenUp
+      }),
+      { expirationTtl: 7 * 24 * 3600 }
+    );
+  } catch (e) { /* 忽略 */ }
+}
+
+/**
+ * 手动触发一次（后台的「立即执行」按钮用）。
+ * 跟定时任务走同一段代码、也写同一个心跳 —— 如果按钮管用、定时不管用，
+ * 那基本就能断定是 cron 没配上，而不是这段逻辑的问题。
+ */
+export async function runSchedulesNow(env) {
+  return await runDueSchedules(env);
 }

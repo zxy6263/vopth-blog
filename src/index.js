@@ -37,7 +37,7 @@ import { checkMilestones, sendStatusReport } from './notify.js';
 import { verifyAccess } from './access.js';
 import {
   createPost, buildMarkdown, listPosts, deletePost,
-  scheduleCreate, scheduleDelete, listScheduled, cancelScheduled, runDueSchedules
+  scheduleCreate, scheduleDelete, listScheduled, cancelScheduled, runDueSchedules, runSchedulesNow
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 
@@ -321,7 +321,7 @@ export default {
       }
 
       // 其余几个都是写操作，必须是 POST
-      if (['post', 'dry-run', 'delete', 'schedule-delete', 'schedule-cancel'].indexOf(action) === -1) {
+      if (['post', 'dry-run', 'delete', 'schedule-delete', 'schedule-cancel', 'schedule-run'].indexOf(action) === -1) {
         return json({ error: 'unknown action' }, 404);
       }
       if (!isPost) return json({ error: 'method not allowed' }, 405);
@@ -334,12 +334,21 @@ export default {
       }
 
       // 给已发表的文章排一个到点删除
-      if (action === 'schedule-delete') {
-        try {
+      if (action === 'schedule-delete') {        try {
           const r = await scheduleDelete(env, String(body.slug || '').trim().toLowerCase(), Number(body.deleteAt));
           return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
         } catch (e) {
           return json({ ok: false, error: '排期失败：' + String(e && e.message) }, 500);
+        }
+      }
+
+      // 立刻手动跑一遍到点的排期（验证 cron 是否正常，不用等 5 分钟）
+      if (action === 'schedule-run') {
+        try {
+          const r = await runSchedulesNow(env);
+          return json(r, r.ok ? 200 : 500);
+        } catch (e) {
+          return json({ ok: false, error: '执行失败：' + String(e && e.message) }, 500);
         }
       }
 
