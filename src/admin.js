@@ -375,3 +375,202 @@ export async function deletePost(env, slug) {
 
   return { ok: true, deleted: filePath, coverDeleted: coverDeleted, note: coverNote };
 }
+
+// ------------------------------------------------------------------ 定时任务
+//
+// 站主要两个能力：
+//   定时发布 —— 写完先存着，到点自动提交上线（到点前站上完全看不到）
+//   限时文章 —— 发出去，到点自动删除
+//
+// 为什么必须靠 KV + 定时任务，而不是"把日期设到未来"
+//   _config.yml 里是 future: true，未来日期的文章【会立刻生成】。所以光改日期
+//   做不到定时发布，必须由 Worker 在到点那一刻去提交文件。
+//
+// 存储
+//   KV（复用已有的 PAGEVIEWS 命名空间）：
+//     sched:<十进制时间戳>:<随机id>  ->  { type, slug, at, tries, post? }
+//   key 以时间戳开头，所以 KV list 出来天然按时间【字典序 = 时间序】排好，
+//   处理时从头扫、遇到没到点的就能停。
+//   ⚠️ KV 的 list 是按 key 字符串排序的，所以时间戳必须补成定长吗？不必 ——
+//      十位十进制数在 2286 年之前都是十位，够用了。真要跨过那个长度再用定长补零。
+//
+// ⚠️ 失败处理：提交/删除失败的条目【保留】、下轮重试，累计失败到一定次数就删掉并记日志，
+//    免得一条坏数据永远卡在那儿、每 5 分钟撞一次 GitHub。
+
+const SCHED_PREFIX = 'sched:';
+const SCHED_MAX_TRIES = 5;
+
+function scheduleKey(atEpoch) {
+  return SCHED_PREFIX + String(atEpoch) + ':' + crypto.randomUUID().slice(0, 8);
+}
+
+/**
+ * 排一个「到点发布」。post 就是 createPost 要的那份数据（含封面 base64）。
+ * deleteAtEpoch 传了的话，同时排一个到点删除。
+ */
+export async function scheduleCreate(env, post, atEpoch, deleteAtEpoch) {
+  if (!isValidSlug(post.slug)) {
+    return { ok: false, status: 400, error: '文件名不合法（只允许小写字母、数字、连字符）' };
+  }
+  if (!post.title || !post.title.trim()) return { ok: false, status: 400, error: '标题不能为空' };
+  if (!post.content || !post.content.trim()) return { ok: false, status: 400, error: '正文不能为空' };
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(atEpoch) || atEpoch < now - 60) {
+    return { ok: false, status: 400, error: '发布时间必须是将来（至少比现在晚一分钟）' };
+  }
+  if (deleteAtEpoch && (!Number.isFinite(deleteAtEpoch) || deleteAtEpoch <= atEpoch)) {
+    return { ok: false, status: 400, error: '删除时间必须晚于发布时间' };
+  }
+
+  // 同名文章不能既排了发布又已经存在
+  try {
+    const existing = await getFile(env, POSTS_DIR + post.slug + '.md');
+    if (existing) {
+      return { ok: false, status: 409, error: POSTS_DIR + post.slug + '.md 已经存在（是之前排过还是已经发了？）' };
+    }
+  } catch (e) {
+    return { ok: false, status: 500, error: '检查同名文件失败：' + String(e && e.message) };
+  }
+
+  const item = {
+    type: 'publish',
+    slug: post.slug,
+    at: atEpoch,
+    tries: 0,
+    post: post,
+    deleteAt: deleteAtEpoch || 0
+  };
+  const key = scheduleKey(atEpoch);
+  await env.PAGEVIEWS.put(key, JSON.stringify(item));
+
+  let delKey = '';
+  if (deleteAtEpoch) {
+    const dItem = { type: 'delete', slug: post.slug, at: deleteAtEpoch, tries: 0 };
+    delKey = scheduleKey(deleteAtEpoch);
+    await env.PAGEVIEWS.put(delKey, JSON.stringify(dItem));
+  }
+
+  return { ok: true, scheduled: true, key: key, deleteKey: delKey, at: atEpoch };
+}
+
+/** 给一篇已经发出去的文章排一个到点删除 */
+export async function scheduleDelete(env, slug, atEpoch) {
+  if (!isValidSlug(slug)) {
+    return { ok: false, status: 400, error: '文件名不合法' };
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(atEpoch) || atEpoch < now - 60) {
+    return { ok: false, status: 400, error: '删除时间必须是将来' };
+  }
+  try {
+    const existing = await getFile(env, POSTS_DIR + slug + '.md');
+    if (!existing) return { ok: false, status: 404, error: POSTS_DIR + slug + '.md 不存在' };
+  } catch (e) {
+    return { ok: false, status: 500, error: '检查文件失败：' + String(e && e.message) };
+  }
+  const key = scheduleKey(atEpoch);
+  await env.PAGEVIEWS.put(key, JSON.stringify({ type: 'delete', slug: slug, at: atEpoch, tries: 0 }));
+  return { ok: true, scheduled: true, key: key, at: atEpoch };
+}
+
+/** 列出所有排期（按时间正序） */
+export async function listScheduled(env) {
+  const out = [];
+  let cursor = undefined;
+  for (let i = 0; i < 5; i++) {          // 最多翻 5 页，够用了
+    const page = await env.PAGEVIEWS.list({ prefix: SCHED_PREFIX, limit: 100, cursor: cursor });
+    for (const k of page.keys) {
+      const raw = await env.PAGEVIEWS.get(k.name);
+      if (!raw) continue;
+      let item;
+      try { item = JSON.parse(raw); } catch (e) { continue; }
+      out.push({
+        key: k.name,
+        type: item.type,
+        slug: item.slug,
+        at: item.at,
+        tries: item.tries || 0,
+        hasCover: !!(item.post && item.post.cover && item.post.cover.base64),
+        title: (item.post && item.post.title) || ''
+      });
+    }
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  out.sort((a, b) => a.at - b.at);
+  return { ok: true, count: out.length, items: out };
+}
+
+/** 取消一个排期 */
+export async function cancelScheduled(env, key) {
+  if (!key || key.indexOf(SCHED_PREFIX) !== 0) {
+    return { ok: false, status: 400, error: 'key 不合法' };
+  }
+  const raw = await env.PAGEVIEWS.get(key);
+  if (!raw) return { ok: false, status: 404, error: '没找到这条排期（可能已经执行或已取消）' };
+  await env.PAGEVIEWS.delete(key);
+  return { ok: true, cancelled: key };
+}
+
+/**
+ * 定时任务入口：把所有到点的排期执行掉。
+ * 由 src/index.js 的 scheduled() 调用（每 5 分钟一次）。
+ */
+export async function runDueSchedules(env) {
+  const now = Math.floor(Date.now() / 1000);
+  const done = [];
+  const failed = [];
+  const givenUp = [];
+
+  let page = await env.PAGEVIEWS.list({ prefix: SCHED_PREFIX, limit: 50 });
+  const keys = page.keys.map((k) => k.name);
+
+  for (const key of keys) {
+    const stamp = parseInt(key.slice(SCHED_PREFIX.length).split(':')[0], 10);
+    if (!Number.isFinite(stamp) || stamp > now) continue;   // 还没到点
+
+    const raw = await env.PAGEVIEWS.get(key);
+    if (!raw) continue;
+
+    let item;
+    try {
+      item = JSON.parse(raw);
+    } catch (e) {
+      await env.PAGEVIEWS.delete(key);                      // 坏数据直接清掉
+      givenUp.push(key + ' (JSON 坏了)');
+      continue;
+    }
+
+    let result;
+    try {
+      if (item.type === 'publish') {
+        result = await createPost(env, item.post);
+      } else if (item.type === 'delete') {
+        result = await deletePost(env, item.slug);
+      } else {
+        result = { ok: false, error: '未知类型 ' + item.type };
+      }
+    } catch (e) {
+      result = { ok: false, error: String(e && e.message) };
+    }
+
+    if (result && result.ok) {
+      await env.PAGEVIEWS.delete(key);
+      done.push((item.type === 'publish' ? '已发布 ' : '已删除 ') + item.slug);
+      // 发布成功且当初还排了删除 —— 那条删除排期早就独立存好了，这里不用管
+    } else {
+      const tries = (item.tries || 0) + 1;
+      if (tries >= SCHED_MAX_TRIES) {
+        await env.PAGEVIEWS.delete(key);
+        givenUp.push(key + ' (' + (result && result.error) + ')');
+      } else {
+        item.tries = tries;
+        await env.PAGEVIEWS.put(key, JSON.stringify(item));
+        failed.push(item.slug + ' 第 ' + tries + ' 次失败：' + (result && result.error));
+      }
+    }
+  }
+
+  return { ok: true, checked: keys.length, done: done, failed: failed, givenUp: givenUp };
+}

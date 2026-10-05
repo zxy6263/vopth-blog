@@ -90,6 +90,37 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   }
   .md-tools button:hover { border-color: var(--accent); color: var(--accent); }
   .md-tools .sep { width: 1px; background: var(--line); margin: 2px 2px; }
+
+  /* 打字时的标签候选 */
+  .suggest {
+    display: none; margin: 0 0 8px; padding: 6px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--card); max-height: 180px; overflow: auto;
+  }
+  .suggest.on { display: block; }
+  .suggest button {
+    display: block; width: 100%; text-align: left; padding: 7px 10px; margin: 0;
+    font-size: 13px; font-weight: 400; border-radius: 6px; color: var(--text);
+    background: transparent; box-shadow: none;
+  }
+  .suggest button:hover, .suggest button.sel { background: var(--bg); color: var(--accent); }
+  .suggest .tag { font-family: ui-monospace, Consolas, monospace; }
+  .suggest .desc { color: var(--muted); font-size: 12px; margin-left: 8px; }
+
+  input[type=datetime-local] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--bg); color: var(--text); font: inherit; outline: none;
+  }
+  input[type=datetime-local]:focus { border-color: var(--accent); }
+
+  .sched-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+    border-bottom: 1px solid var(--line);
+  }
+  .sched-row:last-child { border-bottom: 0; }
+  .sched-badge {
+    flex: 0 0 auto; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+    background: var(--bg); color: var(--muted); border: 1px solid var(--line);
+  }
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   button {
@@ -166,6 +197,22 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
           <input type="text" id="desc" placeholder="留空则用正文开头" autocomplete="off">
         </div>
       </div>
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="publishAt">定时发布（留空 = 立刻发）</label>
+          <input type="datetime-local" id="publishAt">
+        </div>
+        <div>
+          <label for="deleteAt">限时删除（留空 = 不删）</label>
+          <input type="datetime-local" id="deleteAt">
+        </div>
+      </div>
+      <div class="hint">
+        定时发布：到点之前站上完全看不到这篇。<br>
+        限时删除：发出去之后到点自动删掉（比如临时公告）。<br>
+        两者都靠 Worker 的定时任务，<b>每 5 分钟检查一次</b>，所以最晚晚 5 分钟 —— 别把时间卡太死。
+      </div>
     </div>
 
     <div class="card">
@@ -199,6 +246,7 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
         <button type="button" data-insert="code">代码块</button>
         <button type="button" data-insert="img">图片</button>
       </div>
+      <div class="suggest" id="suggest"></div>
       <textarea id="content" placeholder="写点什么…"></textarea>
       <div class="hint">图片请放在仓库 source/img/ 里，正文用 /img/文件名 引用（手机上可以先写文字，图片回电脑补）</div>
     </div>
@@ -221,6 +269,17 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
       <div class="hint" style="margin-top:12px">
         删除会同时删掉这篇自己的封面图（共用的默认封面不会被碰）。删完约 1~2 分钟下线。<br>
         想改已发表的文章，请回本地用编辑器改 —— 后台只负责发新的和删旧的。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="actions" style="justify-content:space-between">
+        <span id="schedInfo" class="hint" style="margin:0">正在读取排期…</span>
+        <button class="ghost" id="schedRefresh">刷新</button>
+      </div>
+      <div id="schedList" style="margin-top:10px"></div>
+      <div class="hint" style="margin-top:12px">
+        这里是还没执行的定时任务（定时发布 / 限时删除）。Worker 每 5 分钟检查一次。
       </div>
     </div>
   </div>
@@ -250,7 +309,7 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     $('tabManage').style.display = write ? 'none' : '';
     $('tabBtnWrite').className = write ? 'on' : '';
     $('tabBtnManage').className = write ? '' : 'on';
-    if (!write) loadPosts();
+    if (!write) { loadPosts(); loadSched(); }
   }
   $('tabBtnWrite').addEventListener('click', function () { switchTab('write'); });
   $('tabBtnManage').addEventListener('click', function () { switchTab('manage'); });
@@ -423,6 +482,132 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     else insertInto(ta, text, s, e, snap.pre.length, snap.pre.length + snap.ph.length);
   });
 
+  // ---------------------------------------------------------- 打字时的标签候选
+  //
+  // 在正文里敲 {%、{% no 这种就弹候选，回车 / Tab / 点击补全。
+  // 只在"光标前面正好是 {% + 可选的部分标签名"时才弹，其余时候一律不打扰。
+  // 候选框故意放在正文上方（而不是跟着光标浮动）—— 手机上软键盘一弹，
+  // 跟着光标走的小浮层很容易被挡住或错位，固定位置反而好用。
+  var TAG_LIST = [
+    ['note', '提示框 {% note info flat %}'],
+    ['endnote', '结束提示框'],
+    ['label', '行内标签'],
+    ['btn', '按钮'],
+    ['tabs', '分栏'],
+    ['tab', '分栏里的一栏'],
+    ['endtab', '结束一栏'],
+    ['endtabs', '结束分栏'],
+    ['hideToggle', '折叠块'],
+    ['endhideToggle', '结束折叠'],
+    ['timeline', '时间线'],
+    ['series', '系列'],
+    ['score', '评分'],
+    ['asset_img', '文章资源图片'],
+    ['inlineImg', '行内图片'],
+    ['raw', '不解析的内容'],
+    ['endraw', '结束 raw']
+  ];
+  // 标签名 -> 工具条里那套片段（不是每个标签都有完整片段，没有的就只补名字）
+  var SNAP_BY_TAG = {
+    note: 'note-info',
+    label: 'label',
+    btn: 'btn',
+    tabs: 'tabs',
+    hideToggle: 'hide'
+  };
+  var sugHits = [];
+  var sugIdx = -1;
+
+  function hideSuggest() {
+    sugHits = [];
+    sugIdx = -1;
+    var box = $('suggest');
+    box.className = 'suggest';
+    box.innerHTML = '';
+  }
+
+  function markSuggest() {
+    var btns = $('suggest').children;
+    for (var i = 0; i < btns.length; i++) btns[i].className = (i === sugIdx ? 'sel' : '');
+  }
+
+  function showSuggest() {
+    var ta = $('content');
+    var m = /\{%\s*([a-zA-Z_]*)$/.exec(ta.value.slice(0, ta.selectionStart));
+    if (!m) { hideSuggest(); return; }
+    var q = m[1].toLowerCase();
+    var hits = TAG_LIST.filter(function (t) { return t[0].toLowerCase().indexOf(q) === 0; });
+    if (!hits.length) { hideSuggest(); return; }
+
+    sugHits = hits;
+    sugIdx = 0;
+    var box = $('suggest');
+    box.innerHTML = '';
+    hits.forEach(function (t, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = i === 0 ? 'sel' : '';
+      var s1 = document.createElement('span');
+      s1.className = 'tag';
+      s1.textContent = '{% ' + t[0] + ' %}';
+      var s2 = document.createElement('span');
+      s2.className = 'desc';
+      s2.textContent = t[1];
+      b.appendChild(s1);
+      b.appendChild(s2);
+      b.addEventListener('click', function () { applySuggest(i); });
+      box.appendChild(b);
+    });
+    box.className = 'suggest on';
+  }
+
+  function applySuggest(i) {
+    if (i < 0 || i >= sugHits.length) { hideSuggest(); return; }
+    var ta = $('content');
+    var name = sugHits[i][0];
+    var snapKey = SNAP_BY_TAG[name];
+    var snap = snapKey ? SNIPPETS[snapKey] : null;
+    var text, from, to;
+    if (snap) {
+      text = snap.pre + snap.ph + snap.post;
+      from = snap.pre.length;
+      to = snap.pre.length + snap.ph.length;
+    } else {
+      text = name;
+      from = text.length;
+      to = text.length;
+    }
+    // 把光标前那段 "{%xxx" 一起替换成完整片段
+    var start = ta.value.lastIndexOf('{%', ta.selectionStart);
+    if (start < 0) start = ta.selectionStart;
+    var caret = ta.selectionStart;
+    ta.value = ta.value.slice(0, start) + text + ta.value.slice(caret);
+    ta.focus();
+    ta.setSelectionRange(start + from, start + to);
+    ta.dispatchEvent(new Event('input'));
+    hideSuggest();
+  }
+
+  $('content').addEventListener('input', showSuggest);
+  $('content').addEventListener('blur', function () { setTimeout(hideSuggest, 250); });
+  $('content').addEventListener('keydown', function (ev) {
+    if (!sugHits.length) return;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      sugIdx = (sugIdx + 1) % sugHits.length;
+      markSuggest();
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      sugIdx = (sugIdx - 1 + sugHits.length) % sugHits.length;
+      markSuggest();
+    } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+      ev.preventDefault();
+      applySuggest(sugIdx);
+    } else if (ev.key === 'Escape') {
+      hideSuggest();
+    }
+  });
+
   // ---------------------------------------------------------- 清空 / 发布
   $('clear').addEventListener('click', function () {
     if (!confirm('清空当前内容和草稿？')) return;
@@ -452,11 +637,27 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     };
     if (pickedCover) body.cover = { ext: pickedCover.ext, base64: pickedCover.base64 };
 
+    // 定时发布 / 限时删除。
+    // datetime-local 的值形如 2026-10-07T14:30；new Date(...) 按【本机时区】解释，
+    // 转成 epoch 秒发给 Worker（Worker 那边不猜时区，避免两端各解释一次）。
+    var pubRaw = $('publishAt').value;
+    var delRaw = $('deleteAt').value;
+    var publishAt = pubRaw ? Math.floor(new Date(pubRaw).getTime() / 1000) : 0;
+    var deleteAt = delRaw ? Math.floor(new Date(delRaw).getTime() / 1000) : 0;
+    var nowSec = Math.floor(Date.now() / 1000);
+
+    if (publishAt && !(publishAt > nowSec)) { say('bad', '定时发布的时间必须是将来'); return; }
+    if (deleteAt && !(deleteAt > nowSec)) { say('bad', '限时删除的时间必须是将来'); return; }
+    if (publishAt && deleteAt && deleteAt <= publishAt) { say('bad', '删除时间必须晚于发布时间'); return; }
+    if (publishAt) body.publishAt = publishAt;
+
     var btn = $('publish');
     btn.disabled = true;
-    say('', pickedCover ? '正在上传封面并提交文章…' : '正在提交…');
+    say('', publishAt
+      ? '正在排期（定时发布）…'
+      : (pickedCover ? '正在上传封面并提交文章…' : '正在提交…'));
 
-    fetch('/admin/api/post', {
+    fetch(publishAt ? '/admin/api/schedule' : '/admin/api/post', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
@@ -464,17 +665,57 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     }).then(function (r) {
       return r.json().then(function (j) { return { status: r.status, body: j }; });
     }).then(function (res) {
-      btn.disabled = false;
-      if (res.body && res.body.ok) {
-        try { localStorage.removeItem(KEY); } catch (e) {}
-        $('draftInfo').textContent = '';
-        var t = '提交成功（' + res.body.path + '，commit ' + res.body.commit + '）';
-        if (res.body.cover) t += '\n封面也传好了：' + res.body.cover;
-        t += '\n\nCloudflare 正在构建，约 1~2 分钟后上线。';
-        say('ok', t);
-      } else {
-        say('bad', '提交失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      if (!res.body || !res.body.ok) {
+        btn.disabled = false;
+        say('bad', (publishAt ? '排期失败：' : '提交失败：') + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+        return;
       }
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      $('draftInfo').textContent = '';
+
+      if (publishAt) {
+        // 定时发布：还没提交，先把排期结果说清楚
+        $('publishAt').value = '';
+        btn.disabled = false;
+        var st = '已排期：' + new Date(publishAt * 1000).toLocaleString('zh-CN', { hour12: false }) + ' 自动发布';
+        if (deleteAt) st += '\n并会在 ' + new Date(deleteAt * 1000).toLocaleString('zh-CN', { hour12: false }) + ' 自动删除';
+        st += '\n\n到点之前站上完全看不到这篇。Worker 每 5 分钟检查一次，最晚晚 5 分钟。';
+        say('ok', st);
+        return;
+      }
+
+      // 立即发布成功。若还设了"限时删除"，接着排一个删除任务
+      var t = '提交成功（' + res.body.path + '，commit ' + res.body.commit + '）';
+      if (res.body.cover) t += '\n封面也传好了：' + res.body.cover;
+      if (deleteAt) {
+        say('', '文章已提交，正在排「限时删除」…');
+        fetch('/admin/api/schedule-delete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ slug: body.slug, deleteAt: deleteAt })
+        }).then(function (r2) {
+          return r2.json().then(function (j) { return { status: r2.status, body: j }; });
+        }).then(function (r2) {
+          btn.disabled = false;
+          if (r2.body && r2.body.ok) {
+            $('deleteAt').value = '';
+            t += '\n并已排期：' + new Date(deleteAt * 1000).toLocaleString('zh-CN', { hour12: false }) + ' 自动删除';
+          } else {
+            t += '\n⚠️ 但「限时删除」没排上：' + ((r2.body && r2.body.error) || ('HTTP ' + r2.status));
+          }
+          t += '\n\nCloudflare 正在构建，约 1~2 分钟后上线。';
+          say('ok', t);
+        }).catch(function (e) {
+          btn.disabled = false;
+          say('bad', t + '\n⚠️ 但「限时删除」请求出错：' + (e && e.message ? e.message : e));
+        });
+        return;
+      }
+
+      btn.disabled = false;
+      t += '\n\nCloudflare 正在构建，约 1~2 分钟后上线。';
+      say('ok', t);
     }).catch(function (e) {
       btn.disabled = false;
       say('bad',
@@ -578,6 +819,91 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   }
 
   loadDraft();
+
+  // ---------------------------------------------------------- 管理：排期列表
+  function loadSched() {
+    $('schedInfo').textContent = '正在读取排期…';
+    $('schedList').innerHTML = '';
+    fetch('/admin/api/schedule', { credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (!res.body || !res.body.ok) {
+          $('schedInfo').textContent = '读取失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status));
+          return;
+        }
+        renderSched(res.body.items || []);
+      })
+      .catch(function (e) {
+        $('schedInfo').textContent = '请求出错：' + (e && e.message ? e.message : e);
+      });
+  }
+  $('schedRefresh').addEventListener('click', loadSched);
+
+  function fmtTime(sec) {
+    return new Date(sec * 1000).toLocaleString('zh-CN', { hour12: false });
+  }
+
+  function renderSched(items) {
+    var box = $('schedList');
+    box.innerHTML = '';
+    if (!items.length) {
+      $('schedInfo').textContent = '没有待执行的排期';
+      var p = document.createElement('div');
+      p.className = 'hint';
+      p.textContent = '（在「写文章」里设了定时发布或限时删除，这里就会出现）';
+      box.appendChild(p);
+      return;
+    }
+    $('schedInfo').textContent = '共 ' + items.length + ' 条待执行';
+    items.forEach(function (it) {
+      var row = document.createElement('div');
+      row.className = 'sched-row';
+
+      var badge = document.createElement('span');
+      badge.className = 'sched-badge';
+      badge.textContent = (it.type === 'publish' ? '定时发布' : '限时删除');
+
+      var info = document.createElement('div');
+      info.className = 'post-info';
+      var t = document.createElement('div');
+      t.className = 'post-title';
+      t.textContent = (it.title || it.slug) + (it.hasCover ? '（含封面）' : '');
+      var s = document.createElement('div');
+      s.className = 'post-slug';
+      s.textContent = fmtTime(it.at) + (it.tries ? ' · 已重试 ' + it.tries + ' 次' : '');
+      info.appendChild(t);
+      info.appendChild(s);
+
+      var btn = document.createElement('button');
+      btn.className = 'danger';
+      btn.textContent = '取消';
+      btn.addEventListener('click', function () {
+        if (!confirm('取消这条排期？\n\n' + (it.type === 'publish' ? '不再自动发布 ' : '不再自动删除 ') + it.slug)) return;
+        btn.disabled = true;
+        btn.textContent = '取消中…';
+        fetch('/admin/api/schedule-cancel', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ key: it.key })
+        }).then(function (r) {
+          return r.json().then(function (j) { return { status: r.status, body: j }; });
+        }).then(function (res) {
+          if (res.body && res.body.ok) { row.className = 'sched-row gone'; setTimeout(loadSched, 400); }
+          else { btn.disabled = false; btn.textContent = '取消'; say('bad', '取消失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status))); }
+        }).catch(function (e) {
+          btn.disabled = false;
+          btn.textContent = '取消';
+          say('bad', '请求出错：' + (e && e.message ? e.message : e));
+        });
+      });
+
+      row.appendChild(badge);
+      row.appendChild(info);
+      row.appendChild(btn);
+      box.appendChild(row);
+    });
+  }
 })();
 </script>
 </body>

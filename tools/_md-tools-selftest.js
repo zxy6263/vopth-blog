@@ -66,6 +66,47 @@
     L.push('[骨架]    长度=' + ta.value.length + '   开头=' + J(ta.value.substring(0, 18)));
     L.push('          草稿提示=' + J((document.getElementById('draftInfo') || {}).textContent));
 
+    // ---- 打字自动提示 ----
+    reset();
+    ta.value = '{% no';
+    ta.setSelectionRange(4, 4);
+    ta.dispatchEvent(new Event('input'));
+    var box = document.getElementById('suggest');
+    L.push('[自动提示] 输入 "{% no" → 候选框 class=' + J(box.className) + '  候选数=' + box.children.length);
+    if (box.children.length) {
+      L.push('            第一条=' + J(box.children[0].textContent));
+      box.children[0].click();
+      L.push('            点第一条后正文=' + J(ta.value));
+      L.push('            ' + (ta.value.indexOf('{% note info flat %}') === 0 ? 'OK' : 'FAIL'));
+    } else {
+      L.push('            FAIL 没弹出候选');
+    }
+
+    reset();
+    ta.value = '普通文字';
+    ta.setSelectionRange(4, 4);
+    ta.dispatchEvent(new Event('input'));
+    L.push('[不该弹]   输入普通文字 → 候选框 class=' + J(document.getElementById('suggest').className)
+      + '   ' + (document.getElementById('suggest').className === 'suggest' ? 'OK' : 'FAIL'));
+
+    reset();
+    ta.value = '{% lab';
+    ta.setSelectionRange(6, 6);
+    ta.dispatchEvent(new Event('input'));
+    var box2 = document.getElementById('suggest');
+    L.push('[自动提示2] 输入 "{% lab" → 候选数=' + box2.children.length
+      + '  第一条=' + J(box2.children.length ? box2.children[0].textContent : ''));
+    if (box2.children.length) {
+      box2.children[0].click();
+      L.push('            点后正文=' + J(ta.value) + '   ' + (ta.value.indexOf('{% label') === 0 ? 'OK' : 'FAIL'));
+    }
+
+    // ---- 定时相关 ----
+    L.push('[定时输入] publishAt=' + !!document.getElementById('publishAt')
+      + '  deleteAt=' + !!document.getElementById('deleteAt')
+      + '   ' + (document.getElementById('publishAt') && document.getElementById('deleteAt') ? 'OK' : 'FAIL'));
+    L.push('[排期列表] schedList 存在=' + !!document.getElementById('schedList'));
+
     var bad = L.filter(function (x) { return x.indexOf('FAIL') >= 0 || x.indexOf('!!!') >= 0; }).length;
     L.push('');
     L.push(bad === 0 ? '===== 全部通过 =====' : '===== 有 ' + bad + ' 项没通过 =====');

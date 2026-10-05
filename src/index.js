@@ -35,8 +35,14 @@
 import { sendMail } from './mail.js';
 import { checkMilestones, sendStatusReport } from './notify.js';
 import { verifyAccess } from './access.js';
-import { createPost, buildMarkdown, listPosts, deletePost } from './admin.js';
+import {
+  createPost, buildMarkdown, listPosts, deletePost,
+  scheduleCreate, scheduleDelete, listScheduled, cancelScheduled, runDueSchedules
+} from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
+
+// 每 3 小时那条 cron 用来发状态报告；其余（每 5 分钟那条）用来跑定时文章。
+const REPORT_CRON = '0 */3 * * *';
 
 const KV_PREFIX = 'pv:';
 const TOTAL_KEY = KV_PREFIX + '__total__';
@@ -280,8 +286,42 @@ export default {
         }
       }
 
-      // 其余三个都是写操作，必须是 POST
-      if (['post', 'dry-run', 'delete'].indexOf(action) === -1) {
+      // 排期：GET 列出，POST 新建。
+      //   POST /admin/api/schedule         body: 文章数据 + publishAt(epoch秒) [+ deleteAt]
+      //   POST /admin/api/schedule-delete  body: { slug, deleteAt }
+      //   POST /admin/api/schedule-cancel  body: { key }
+      if (action === 'schedule') {
+        if (request.method === 'GET') {
+          try {
+            return json(await listScheduled(env));
+          } catch (e) {
+            return json({ ok: false, error: '列排期出错：' + String(e && e.message) }, 500);
+          }
+        }
+        if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+        let b;
+        try { b = await request.json(); } catch (e) { return json({ error: '请求体不是合法 JSON' }, 400); }
+        const cv = b.cover && b.cover.base64
+          ? { ext: String(b.cover.ext || 'jpg'), base64: String(b.cover.base64) }
+          : null;
+        try {
+          const r = await scheduleCreate(env, {
+            title: String(b.title || '').trim(),
+            slug: String(b.slug || '').trim().toLowerCase(),
+            category: String(b.category || '').trim(),
+            tags: Array.isArray(b.tags) ? b.tags : [],
+            description: String(b.description || '').trim(),
+            content: String(b.content || ''),
+            cover: cv
+          }, Number(b.publishAt), b.deleteAt ? Number(b.deleteAt) : 0);
+          return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
+        } catch (e) {
+          return json({ ok: false, error: '排期失败：' + String(e && e.message) }, 500);
+        }
+      }
+
+      // 其余几个都是写操作，必须是 POST
+      if (['post', 'dry-run', 'delete', 'schedule-delete', 'schedule-cancel'].indexOf(action) === -1) {
         return json({ error: 'unknown action' }, 404);
       }
       if (!isPost) return json({ error: 'method not allowed' }, 405);
@@ -291,6 +331,26 @@ export default {
         body = await request.json();
       } catch (e) {
         return json({ error: '请求体不是合法 JSON' }, 400);
+      }
+
+      // 给已发表的文章排一个到点删除
+      if (action === 'schedule-delete') {
+        try {
+          const r = await scheduleDelete(env, String(body.slug || '').trim().toLowerCase(), Number(body.deleteAt));
+          return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
+        } catch (e) {
+          return json({ ok: false, error: '排期失败：' + String(e && e.message) }, 500);
+        }
+      }
+
+      // 取消一条排期
+      if (action === 'schedule-cancel') {
+        try {
+          const r = await cancelScheduled(env, String(body.key || ''));
+          return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
+        } catch (e) {
+          return json({ ok: false, error: '取消失败：' + String(e && e.message) }, 500);
+        }
       }
 
       // 删文章：只认 slug，别的都不看（安全边界见 src/admin.js）
@@ -379,12 +439,28 @@ export default {
 
   /**
    * 定时任务（wrangler.jsonc 里的 triggers.crons 配的）
-   * 每 3 小时发一封状态报告。
+   *   0 *&#47;3 * * *   每 3 小时：发一封站点状态报告
+   *   *&#47;5 * * * *    每 5 分钟：跑定时文章（到点发布 / 到点删除）
+   *
+   * 用 event.cron 区分是哪条触发的。故意把"报告"写成已知的那一条、
+   * 其余一律走排期处理 —— 这样以后再加 cron 不会漏掉新任务。
    */
   async scheduled(event, env, ctx) {
-    const run = sendStatusReport(env).catch((e) => {
-      console.log('[cron] 状态报告失败：' + (e && e.message));
+    const cron = event && event.cron;
+    const run = (async () => {
+      if (cron === REPORT_CRON) {
+        await sendStatusReport(env);
+        return;
+      }
+      // 定时文章：到点的发布/删除
+      const r = await runDueSchedules(env);
+      if (r.done.length || r.failed.length || r.givenUp.length) {
+        console.log('[sched] ' + JSON.stringify(r));
+      }
+    })().catch((e) => {
+      console.log('[cron] 任务失败（' + cron + '）：' + (e && e.message));
     });
+
     if (ctx && typeof ctx.waitUntil === 'function') {
       ctx.waitUntil(run);
     } else {
