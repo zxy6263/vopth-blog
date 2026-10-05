@@ -59,7 +59,20 @@ tag_map:
 meta_generator: true
 
 # ------------------------------------------------------------------ 日期 / 时间
-date_format: YYYY-MM-DD
+#
+# ★ date_format 决定【显示】格式，改这一行就等于改全站。
+#   主题模板里写的是 date(page.date, config.date_format)，以下三处都走它：
+#     · includes/header/post-info.pug     文章页的「发表于 / 更新于」
+#     · includes/mixins/indexPostUI.pug   首页的文章卡片
+#     · includes/mixins/article-sort.pug  归档页
+#   所以要「精确到秒」只能改这里，改完这三处会一起带上时分秒。
+#
+#   time_format 是 Hexo 内部做日期分组用的，这个主题不显示它。
+#
+# ⚠️ 已知取舍：文章的 front-matter 里 date 目前只精确到【分钟】
+#    （例如 2026-10-05 05:22:00），所以秒数一律显示 :00。
+#    要让秒数有真实意义，得把每篇文章的秒补齐 —— 可以从 git 提交时间取。
+date_format: YYYY-MM-DD HH:mm:ss
 time_format: HH:mm:ss
 # 「最后更新」时间的兜底值：用文章 front-matter 里的 date。
 #

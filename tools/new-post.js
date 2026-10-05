@@ -174,11 +174,28 @@ function slugify(title) {
 }
 
 function todayStamp() {
-  const d = new Date();
+  // 用上海时间，而不是机器本地时间。
+  //
+  // 为什么：_config.yml 里写的是 timezone: 'Asia/Shanghai'，Hexo 按它解释
+  // front-matter 里的 date。两边必须一致 —— 否则换一台时区不是 +08 的机器
+  // （新装的 Windows、WSL、CI）就会静默写出差 8 小时的时间，而且没有任何报错。
+  //
+  // 实现上用「UTC 毫秒 + 8 小时」再按 UTC 取值，而不是 Intl：
+  //   1) 中国没有夏令时，+8 是常量，不需要时区数据库
+  //   2) Intl 的 hour12:false 在午夜会返回 "24"（h24 vs h23 的历史坑），
+  //      用 getUTC* 系列没有这个歧义
+  const SH_OFFSET_MS = 8 * 60 * 60 * 1000;
+  const d = new Date(Date.now() + SH_OFFSET_MS);
   const p = (n) => String(n).padStart(2, '0');
+
   return {
-    date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:00`,
-    compact: `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`
+    // 秒必须用真实值：文章页和首页卡片显示的就是这个字段。
+    // （这里以前写死 ':00'，所以早期所有文章的秒都是 00 —— 后来从每篇的
+    //   git 首次提交时间补过一轮。注意两者不会完全相同：脚本写的是「创建文件的
+    //   那一刻」，而 git 提交发生在构建之后，通常晚十几秒到半分钟。）
+    date: `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} `
+        + `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`,
+    compact: `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}`
   };
 }
 
