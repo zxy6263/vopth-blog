@@ -51,6 +51,26 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      # 先单独把 secret 检查清楚。
+      # 为什么需要：原来的设计是"没配 secret 就只检查、不报警、也不报错"，
+      # 结果 secret 没配或名字写错时【运行是绿的、什么事都没发生】，完全看不出问题。
+      # 现在：手动触发 → 缺 secret 就明确报红并说明；定时触发 → 只记一行日志，不刷屏。
+      - name: 检查 Secret 是否配置
+        env:
+          HOOK: ${{ secrets.FLASHDUTY_WEBHOOK }}
+        run: |
+          if [ -z "${HOOK:-}" ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "::error::没有拿到 FLASHDUTY_WEBHOOK —— 要么没建，要么名字不对（必须完全一致、大小写敏感、前后无空格）"
+              echo "位置：仓库 Settings → Secrets and variables → Actions"
+              echo "正确名字：FLASHDUTY_WEBHOOK"
+              exit 1
+            fi
+            echo "⚠️ 定时运行：没有 FLASHDUTY_WEBHOOK，本次只检查、不推送（这是预期行为，不是故障）"
+          else
+            echo "✅ FLASHDUTY_WEBHOOK 已配置（长度 ${#HOOK} 字符，不打印内容）"
+          fi
+
       - name: 巡检 vopth.xyz
         env:
           FLASHDUTY_WEBHOOK: ${{ secrets.FLASHDUTY_WEBHOOK }}
