@@ -413,7 +413,10 @@ const SCHED_MAX_TRIES = 5;
 // ⚠️ 不能用 sched: 前缀 —— 那会被当成一条排期。
 const HEARTBEAT_KEY = 'cron:lastrun';
 // 兜底检查的最小间隔（秒）。别每次访问都去 list 一遍 KV。
-const LAZY_INTERVAL = 300;
+// 兜底的检查间隔（秒）。2026-10-06 从 300 改成 120：
+// cron 一直没生效，全靠这条兜底，间隔越短定时文章越准点。
+// 代价只是 KV 读（绕开判断不写），读额度 10 万/天，够用。
+const LAZY_INTERVAL = 120;
 
 function scheduleKey(atEpoch) {
   return SCHED_PREFIX + String(atEpoch) + ':' + crypto.randomUUID().slice(0, 8);

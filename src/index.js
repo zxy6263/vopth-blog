@@ -450,8 +450,9 @@ export default {
                 console.log('[notify] checkMilestones 异常：' + (e && e.message));
               })
             );
-            // 兜底跑定时文章：cron 万一没生效，只要有访客就还能执行。
-            // 同样丢进 waitUntil，绝不挡住访客的计数响应。
+          // 兜底跑定时文章：cron 万一没生效，只要有访客就还能执行。
+          // 同样丢进 waitUntil，绝不挡住访客的计数响应。
+          if (ctx && typeof ctx.waitUntil === 'function') {
             ctx.waitUntil(
               maybeRunSchedules(env).catch((e) => {
                 console.log('[sched] 兜底检查异常：' + (e && e.message));
@@ -462,6 +463,19 @@ export default {
         }
         if (request.method === 'GET') {
           const r = await readCounts(env, key);
+          // ⚠️ 兜底在 GET 上【也必须】跑。
+          // 原来只挂在 POST（+1）分支上，2026-10-06 查 cron 时发现这是个漏洞：
+          // Cloudflare 的 HTTP 日志里全是 GET /api/views，POST 一次都没出现
+          // （列表页/首页只读计数不 +1，page-views.js 的 +1 请求未必发出/未必成功），
+          // 结果"靠访客兜底"这条路实际上等于没有 —— 心跳 57 分钟没动过一次。
+          // 代价：每次读文章多一次 KV 读（间隔没到就直接返回，不写）；读额度 10 万/天，够用。
+          if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(
+              maybeRunSchedules(env).catch((e) => {
+                console.log('[sched] 兜底检查异常：' + (e && e.message));
+              })
+            );
+          }
           return json({ path: path, views: r.views, total: r.total });
         }
         return json({ error: 'method not allowed' }, 405);
