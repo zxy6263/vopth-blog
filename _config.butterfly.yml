@@ -416,3 +416,9 @@ inject:
     # 右下角「设置」里加一个进后台的入口（往 #rightside-config-hide 里插一个 <a>）。
     # 不想用就把这一行删掉，不影响后台本身。
     - '<script src="/js/admin-entry.js" defer></script>'
+    # 状态页小组件：服务异常时在页面顶部显示一条横幅，正常时应该自动隐藏。
+    # 状态页本体 https://statuspage.flashcat.cloud/vopth
+    # ⚠️ 版本号（1.0.1）和 SRI 哈希是一对，FlashDuty 升级 widget 时两处都要换，
+    #    只换一处浏览器会拒绝加载脚本（integrity 校验失败）。
+    - '<script async src="https://statuspage.flashcat.cloud/status-page-widget/1.0.1/widget.js" integrity="sha384-UPNiiTsMdVbjrBGP/eTAW+OBpaWrL5bFa4L0IJkxrGelurQ+sELET6of/tdLcrOn" crossorigin="anonymous"></script>'
+    - '<flashduty-status-widget page="https://statuspage.flashcat.cloud/vopth" type="banner" theme="auto" locale="zh" position="top"></flashduty-status-widget>'
