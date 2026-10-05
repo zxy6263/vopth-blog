@@ -35,7 +35,7 @@
 import { sendMail } from './mail.js';
 import { checkMilestones, sendStatusReport } from './notify.js';
 import { verifyAccess } from './access.js';
-import { createPost, buildMarkdown } from './admin.js';
+import { createPost, buildMarkdown, listPosts, deletePost } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 
 const KV_PREFIX = 'pv:';
@@ -246,10 +246,12 @@ export default {
     }
 
     // ------------------------------------------------------------------
-    //  后台的两个接口。两个都必须通过 Access 鉴权。
-    //    POST /admin/api/post     真提交：写进 GitHub 仓库，触发自动构建
-    //    POST /admin/api/dry-run  干跑：只返回生成好的 Markdown，不提交
-    //                             （用来确认 front-matter 长什么样）
+    //  后台的接口。全部挂在 /admin/api/ 下，全部必须通过 Access 鉴权。
+    //
+    //    GET  /admin/api/posts     列出已有文章（名字 + sha + 从 search.xml 取的中文标题）
+    //    POST /admin/api/post      发新文章（可带封面 { ext, base64 }）
+    //    POST /admin/api/dry-run   干跑：只返回生成好的 Markdown，不提交
+    //    POST /admin/api/delete    删文章（body: { slug }，顺手删它自己的封面）
     //
     //  ⚠️ 路径刻意放在 /admin/ 下面，而不是 /api/admin/。
     //     原因：Cloudflare Access 的 CF_Authorization cookie 是存在【域名】上的，
@@ -259,14 +261,30 @@ export default {
     //     "Failed to fetch"。放在 /admin/ 下就只有一个 Access 应用、一个会话，
     //     没这个问题（Access 的路径是前缀匹配，配了 admin 就覆盖 admin/api/*）。
     //  ------------------------------------------------------------------
-    if (p === '/admin/api/post' || p === '/admin/api/dry-run') {
-      if (request.method !== 'POST') {
-        return json({ error: 'method not allowed' }, 405);
-      }
+    if (p.indexOf('/admin/api/') === 0) {
       const auth = await verifyAccess(request, env);
       if (!auth.ok) {
         return json({ error: 'forbidden', reason: auth.reason }, 403);
       }
+
+      const action = p.slice('/admin/api/'.length);
+      const isPost = request.method === 'POST';
+
+      // 列出文章（只读，用 GET）
+      if (action === 'posts') {
+        if (request.method !== 'GET') return json({ error: 'method not allowed' }, 405);
+        try {
+          return json(await listPosts(env, request));
+        } catch (e) {
+          return json({ ok: false, error: '列文章出错：' + String(e && e.message) }, 500);
+        }
+      }
+
+      // 其余三个都是写操作，必须是 POST
+      if (['post', 'dry-run', 'delete'].indexOf(action) === -1) {
+        return json({ error: 'unknown action' }, 404);
+      }
+      if (!isPost) return json({ error: 'method not allowed' }, 405);
 
       let body;
       try {
@@ -275,21 +293,39 @@ export default {
         return json({ error: '请求体不是合法 JSON' }, 400);
       }
 
+      // 删文章：只认 slug，别的都不看（安全边界见 src/admin.js）
+      if (action === 'delete') {
+        try {
+          const r = await deletePost(env, String(body.slug || '').trim().toLowerCase());
+          return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
+        } catch (e) {
+          return json({ ok: false, error: '删除失败：' + String(e && e.message) }, 500);
+        }
+      }
+
+      const cover = body.cover && body.cover.base64
+        ? { ext: String(body.cover.ext || 'jpg'), base64: String(body.cover.base64) }
+        : null;
+
       const post = {
         title: String(body.title || '').trim(),
         slug: String(body.slug || '').trim().toLowerCase(),
         category: String(body.category || '').trim(),
         tags: Array.isArray(body.tags) ? body.tags : [],
         description: String(body.description || '').trim(),
-        content: String(body.content || '')
+        content: String(body.content || ''),
+        cover: cover
       };
 
-      if (p === '/admin/api/dry-run') {
+      if (action === 'dry-run') {
+        // 干跑时封面还没上传，但要让使用者看到 front-matter 里那行会长什么样
+        const coverPath = cover ? '/img/covers/' + post.slug + '.' + cover.ext.toLowerCase().replace(/^\./, '') : '';
         return json({
           ok: true,
           dryRun: true,
           path: 'source/_posts/' + post.slug + '.md',
-          markdown: buildMarkdown(post)
+          coverPath: coverPath,
+          markdown: buildMarkdown(Object.assign({}, post, { cover: coverPath }))
         });
       }
 

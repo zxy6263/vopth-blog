@@ -28,7 +28,7 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>发文章 · vopth</title>
+<title>后台 · vopth</title>
 <style>
   :root {
     --bg: #f6f7fb; --card: #fff; --text: #2c2f38; --muted: #8a8f9c;
@@ -52,9 +52,20 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     -webkit-text-size-adjust: 100%;
   }
   .wrap { max-width: 820px; margin: 0 auto; }
-  header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
   header .who { color: var(--muted); font-size: 13px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button {
+    padding: 8px 18px; border-radius: 999px; cursor: pointer; font: inherit; font-weight: 400;
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+  }
+  .tabs button.on {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #fff; border-color: transparent; font-weight: 600;
+  }
+
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
     padding: 16px; margin-bottom: 14px;
@@ -67,7 +78,8 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     background: var(--bg); color: var(--text); font: inherit; outline: none;
   }
   input[type=text]:focus, textarea:focus { border-color: var(--accent); }
-  textarea { min-height: 46vh; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 14px; line-height: 1.7; }
+  textarea { min-height: 44vh; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 14px; line-height: 1.7; }
+  input[type=file] { font: inherit; color: var(--text); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   button {
@@ -77,10 +89,29 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   }
   button[disabled] { opacity: .55; cursor: not-allowed; }
   button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 400; }
+  button.danger { background: none; color: var(--bad); border: 1px solid var(--bad); font-weight: 400; padding: 7px 14px; }
+
   #msg { margin-top: 14px; padding: 12px 14px; border-radius: 9px; display: none; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
   #msg.ok { display: block; background: rgba(23,166,115,.12); color: var(--ok); }
   #msg.bad { display: block; background: rgba(224,82,77,.12); color: var(--bad); }
-  #msg a { color: inherit; }
+
+  .cover-box { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .cover-preview {
+    width: 160px; height: 96px; border-radius: 9px; border: 1px dashed var(--line);
+    background: var(--bg) center/cover no-repeat; display: flex; align-items: center;
+    justify-content: center; color: var(--muted); font-size: 12px; flex: 0 0 auto;
+  }
+
+  .post-row {
+    display: flex; align-items: center; gap: 12px; padding: 11px 2px;
+    border-bottom: 1px solid var(--line);
+  }
+  .post-row:last-child { border-bottom: 0; }
+  .post-info { flex: 1 1 auto; min-width: 0; }
+  .post-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-slug { font-size: 12px; color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
+  .post-row.gone { opacity: .4; }
+
   footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 22px; }
   .draft { font-size: 12px; color: var(--muted); }
 </style>
@@ -88,52 +119,89 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
 <body>
 <div class="wrap">
   <header>
-    <h1>发文章</h1>
-    <span class="who" id="who"></span>
+    <h1>后台</h1>
+    <span class="who" id="who">vopth.xyz</span>
   </header>
 
-  <div class="card">
-    <label for="title">标题</label>
-    <input type="text" id="title" placeholder="文章标题" autocomplete="off">
+  <div class="tabs">
+    <button id="tabBtnWrite" class="on">写文章</button>
+    <button id="tabBtnManage">管理文章</button>
+  </div>
 
-    <div class="row" style="margin-top:14px">
-      <div>
-        <label for="slug">文件名（URL 的一部分）</label>
-        <input type="text" id="slug" placeholder="my-post" autocomplete="off">
-        <div class="hint">小写字母、数字、连字符</div>
+  <!-- ================= 写文章 ================= -->
+  <div id="tabWrite">
+    <div class="card">
+      <label for="title">标题</label>
+      <input type="text" id="title" placeholder="文章标题" autocomplete="off">
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="slug">文件名（URL 的一部分）</label>
+          <input type="text" id="slug" placeholder="my-post" autocomplete="off">
+          <div class="hint">小写字母、数字、连字符</div>
+        </div>
+        <div>
+          <label for="category">分类</label>
+          <input type="text" id="category" placeholder="随笔" autocomplete="off">
+        </div>
       </div>
-      <div>
-        <label for="category">分类</label>
-        <input type="text" id="category" placeholder="随笔" autocomplete="off">
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="tags">标签（逗号分隔）</label>
+          <input type="text" id="tags" placeholder="折腾记录, Cloudflare" autocomplete="off">
+        </div>
+        <div>
+          <label for="desc">摘要</label>
+          <input type="text" id="desc" placeholder="留空则用正文开头" autocomplete="off">
+        </div>
       </div>
     </div>
 
-    <div class="row" style="margin-top:14px">
-      <div>
-        <label for="tags">标签（逗号分隔）</label>
-        <input type="text" id="tags" placeholder="折腾记录, Cloudflare" autocomplete="off">
+    <div class="card">
+      <label>封面图</label>
+      <div class="cover-box">
+        <div class="cover-preview" id="coverPreview">未选择</div>
+        <div style="flex:1 1 260px">
+          <input type="file" id="coverFile" accept="image/*">
+          <div class="hint">
+            选好后会在浏览器里自动缩到 1280 宽再上传，手机照片也能用。<br>
+            封面不进草稿（太大），刷新页面要重选。留空就用默认封面。
+          </div>
+          <div style="margin-top:8px"><button class="ghost" id="coverClear" type="button">不用封面</button></div>
+        </div>
       </div>
-      <div>
-        <label for="desc">摘要</label>
-        <input type="text" id="desc" placeholder="留空则用正文开头" autocomplete="off">
-      </div>
+    </div>
+
+    <div class="card">
+      <label for="content">正文（Markdown）</label>
+      <textarea id="content" placeholder="写点什么…"></textarea>
+      <div class="hint">图片请放在仓库 source/img/ 里，正文用 /img/文件名 引用（手机上可以先写文字，图片回电脑补）</div>
+    </div>
+
+    <div class="actions">
+      <button id="publish">发布</button>
+      <button id="clear" class="ghost">清空</button>
+      <span class="draft" id="draftInfo"></span>
     </div>
   </div>
 
-  <div class="card">
-    <label for="content">正文（Markdown）</label>
-    <textarea id="content" placeholder="写点什么…"></textarea>
-    <div class="hint">图片请放在仓库 source/img/ 里，正文用 /img/文件名 引用（手机上可以先写文字，图片回电脑补）</div>
-  </div>
-
-  <div class="actions">
-    <button id="publish">发布</button>
-    <button id="clear" class="ghost">清空</button>
-    <span class="draft" id="draftInfo"></span>
+  <!-- ================= 管理文章 ================= -->
+  <div id="tabManage" style="display:none">
+    <div class="card">
+      <div class="actions" style="justify-content:space-between">
+        <span id="listInfo" class="hint" style="margin:0">正在读取…</span>
+        <button class="ghost" id="refresh">刷新</button>
+      </div>
+      <div id="list" style="margin-top:10px"></div>
+      <div class="hint" style="margin-top:12px">
+        删除会同时删掉这篇自己的封面图（共用的默认封面不会被碰）。删完约 1~2 分钟下线。<br>
+        想改已发表的文章，请回本地用编辑器改 —— 后台只负责发新的和删旧的。
+      </div>
+    </div>
   </div>
 
   <div id="msg"></div>
-
   <footer>提交后会推送到 GitHub，Cloudflare 自动构建，约 1~2 分钟上线</footer>
 </div>
 
@@ -144,19 +212,31 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   var FIELDS = ['title', 'slug', 'category', 'tags', 'desc', 'content'];
   var $ = function (id) { return document.getElementById(id); };
   var msg = $('msg');
+  var pickedCover = null;
 
-  function say(kind, text, linkHtml) {
-    msg.className = kind;
-    msg.textContent = text;
-    if (linkHtml) { msg.innerHTML = ''; msg.appendChild(document.createTextNode(text + ' ')); msg.insertAdjacentHTML('beforeend', linkHtml); }
+  function say(kind, text) {
+    msg.className = kind || '';
+    msg.textContent = text || '';
   }
 
+  // ---------------------------------------------------------- 标签页
+  function switchTab(which) {
+    var write = which === 'write';
+    $('tabWrite').style.display = write ? '' : 'none';
+    $('tabManage').style.display = write ? 'none' : '';
+    $('tabBtnWrite').className = write ? 'on' : '';
+    $('tabBtnManage').className = write ? '' : 'on';
+    if (!write) loadPosts();
+  }
+  $('tabBtnWrite').addEventListener('click', function () { switchTab('write'); });
+  $('tabBtnManage').addEventListener('click', function () { switchTab('manage'); });
+
+  // ---------------------------------------------------------- 草稿（只存文字，不存封面）
   function collect() {
     var o = {};
     FIELDS.forEach(function (f) { o[f] = $(f).value; });
     return o;
   }
-
   function saveDraft() {
     try {
       localStorage.setItem(KEY, JSON.stringify(collect()));
@@ -165,7 +245,6 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
       $('draftInfo').textContent = '（这台设备不让存草稿，注意别刷新）';
     }
   }
-
   function loadDraft() {
     var raw = null;
     try { raw = localStorage.getItem(KEY); } catch (e) { return; }
@@ -176,7 +255,6 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
       $('draftInfo').textContent = '已恢复上次未发布的草稿';
     } catch (e) { /* 草稿坏了就当没有 */ }
   }
-
   FIELDS.forEach(function (f) {
     $(f).addEventListener('input', function () {
       clearTimeout(window.__draftTimer);
@@ -184,12 +262,69 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     });
   });
 
+  // ---------------------------------------------------------- 封面：先在浏览器里缩小
+  //
+  // 手机照片动辄 5~10MB，直接 base64 上传会把请求和 GitHub API 都撑爆。
+  // 用 canvas 缩到 1280 宽、输出 JPEG 0.85，通常落到 200~500KB。
+  // 浏览器会自动应用 EXIF 旋转，所以竖着拍的照片不会躺倒。
+  function shrinkImage(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        try {
+          var maxW = 1280;
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+          var c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          var dataUrl = c.toDataURL('image/jpeg', 0.85);
+          var b64 = dataUrl.split(',')[1] || '';
+          resolve({ ext: 'jpg', base64: b64, bytes: Math.round(b64.length * 3 / 4), w: w, h: h, name: file.name });
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          reject(e);
+        }
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('这张图片读不出来，换个格式试试'));
+      };
+      img.src = url;
+    });
+  }
+
+  $('coverFile').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    say('', '正在处理图片…');
+    shrinkImage(f).then(function (r) {
+      pickedCover = r;
+      $('coverPreview').style.backgroundImage = 'url(data:image/jpeg;base64,' + r.base64 + ')';
+      $('coverPreview').textContent = '';
+      say('ok', '封面已就绪：' + r.w + 'x' + r.h + '，约 ' + Math.round(r.bytes / 1024) + ' KB（已从原图缩小）');
+    }).catch(function (e) {
+      say('bad', '封面处理失败：' + (e && e.message ? e.message : e));
+    });
+  });
+  $('coverClear').addEventListener('click', function () {
+    pickedCover = null;
+    $('coverFile').value = '';
+    $('coverPreview').style.backgroundImage = '';
+    $('coverPreview').textContent = '未选择';
+    say('', '');
+  });
+
+  // ---------------------------------------------------------- 清空 / 发布
   $('clear').addEventListener('click', function () {
     if (!confirm('清空当前内容和草稿？')) return;
     FIELDS.forEach(function (f) { $(f).value = ''; });
     try { localStorage.removeItem(KEY); } catch (e) {}
     $('draftInfo').textContent = '';
-    msg.className = '';
+    say('', '');
   });
 
   $('publish').addEventListener('click', function () {
@@ -202,23 +337,25 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
       return;
     }
 
+    var body = {
+      title: data.title.trim(),
+      slug: data.slug.trim(),
+      category: data.category.trim(),
+      tags: data.tags.split(/[,，]/).map(function (t) { return t.trim(); }).filter(Boolean),
+      description: data.desc.trim(),
+      content: data.content
+    };
+    if (pickedCover) body.cover = { ext: pickedCover.ext, base64: pickedCover.base64 };
+
     var btn = $('publish');
     btn.disabled = true;
-    say('', '正在提交…');
-    msg.className = '';
+    say('', pickedCover ? '正在上传封面并提交文章…' : '正在提交…');
 
     fetch('/admin/api/post', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({
-        title: data.title.trim(),
-        slug: data.slug.trim(),
-        category: data.category.trim(),
-        tags: data.tags.split(/[,，]/).map(function (t) { return t.trim(); }).filter(Boolean),
-        description: data.desc.trim(),
-        content: data.content
-      })
+      body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().then(function (j) { return { status: r.status, body: j }; });
     }).then(function (res) {
@@ -226,15 +363,15 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
       if (res.body && res.body.ok) {
         try { localStorage.removeItem(KEY); } catch (e) {}
         $('draftInfo').textContent = '';
-        say('ok', '提交成功（' + res.body.path + '，commit ' + res.body.commit + '）。Cloudflare 正在构建，约 1~2 分钟后上线。');
+        var t = '提交成功（' + res.body.path + '，commit ' + res.body.commit + '）';
+        if (res.body.cover) t += '\n封面也传好了：' + res.body.cover;
+        t += '\n\nCloudflare 正在构建，约 1~2 分钟后上线。';
+        say('ok', t);
       } else {
         say('bad', '提交失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
       }
     }).catch(function (e) {
       btn.disabled = false;
-      // 「Failed to fetch」这个原生报错对使用者毫无信息量，所以补上最可能的原因。
-      // 最常见的一种：请求被 Cloudflare Access 又拦了一次、跳去了登录页，
-      // 而那个地址是跨域的，浏览器就只报一句 Failed to fetch。
       say('bad',
         '请求出错：' + (e && e.message ? e.message : e) + '\n\n' +
         '最可能的原因：这个请求又被 Cloudflare Access 拦了一次（跳去了登录页）。\n' +
@@ -242,6 +379,98 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
         '如果是，说明页面和接口挂在了两个不同的 Access 应用上（同一个域名下会互相抢登录 cookie）。');
     });
   });
+
+  // ---------------------------------------------------------- 管理：列出文章
+  function loadPosts() {
+    $('listInfo').textContent = '正在读取…';
+    $('list').innerHTML = '';
+    fetch('/admin/api/posts', { credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (!res.body || !res.body.ok) {
+          $('listInfo').textContent = '读取失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status));
+          return;
+        }
+        renderPosts(res.body.posts || []);
+      })
+      .catch(function (e) {
+        $('listInfo').textContent = '请求出错：' + (e && e.message ? e.message : e);
+      });
+  }
+  $('refresh').addEventListener('click', loadPosts);
+
+  function renderPosts(posts) {
+    var list = $('list');
+    list.innerHTML = '';
+    $('listInfo').textContent = '共 ' + posts.length + ' 篇';
+    if (!posts.length) {
+      var p = document.createElement('div');
+      p.className = 'hint';
+      p.textContent = '还没有文章';
+      list.appendChild(p);
+      return;
+    }
+    posts.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'post-row';
+
+      var info = document.createElement('div');
+      info.className = 'post-info';
+      var t = document.createElement('div');
+      t.className = 'post-title';
+      // 用 textContent 而不是 innerHTML —— 标题是仓库里的数据，
+      // 哪怕是自己写的也不该当 HTML 解析
+      t.textContent = item.title || item.slug;
+      var s = document.createElement('div');
+      s.className = 'post-slug';
+      s.textContent = item.slug + '.md · ' + Math.round((item.size || 0) / 1024) + ' KB';
+      info.appendChild(t);
+      info.appendChild(s);
+
+      var btn = document.createElement('button');
+      btn.className = 'danger';
+      btn.textContent = '删除';
+      btn.addEventListener('click', function () { delPost(item, row, btn); });
+
+      row.appendChild(info);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+
+  function delPost(item, row, btn) {
+    var label = item.title || item.slug;
+    if (!confirm('确定删除《' + label + '》？\n\n文件名：' + item.slug + '.md\n' +
+                 '会连同它自己的封面图一起删掉，后台无法撤销（要找回得去 GitHub 历史里捞）。')) return;
+    btn.disabled = true;
+    btn.textContent = '删除中…';
+    fetch('/admin/api/delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ slug: item.slug })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, body: j }; });
+    }).then(function (res) {
+      if (res.body && res.body.ok) {
+        row.className = 'post-row gone';
+        btn.textContent = '已删除';
+        var t = '已删除 ' + res.body.deleted;
+        if (res.body.coverDeleted) t += '\n封面也删了：' + res.body.coverDeleted;
+        if (res.body.note) t += '\n' + res.body.note;
+        t += '\n\n约 1~2 分钟后从线上消失。';
+        say('ok', t);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '删除';
+        say('bad', '删除失败：' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    }).catch(function (e) {
+      btn.disabled = false;
+      btn.textContent = '删除';
+      say('bad', '请求出错：' + (e && e.message ? e.message : e));
+    });
+  }
 
   loadDraft();
 })();
