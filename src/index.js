@@ -37,7 +37,8 @@ import { checkMilestones, sendStatusReport } from './notify.js';
 import { verifyAccess } from './access.js';
 import {
   createPost, buildMarkdown, listPosts, deletePost,
-  scheduleCreate, scheduleDelete, listScheduled, cancelScheduled, runDueSchedules, runSchedulesNow
+  scheduleCreate, scheduleDelete, listScheduled, cancelScheduled,
+  runDueSchedules, runSchedulesNow, maybeRunSchedules
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 
@@ -428,6 +429,13 @@ export default {
                 console.log('[notify] checkMilestones 异常：' + (e && e.message));
               })
             );
+            // 兜底跑定时文章：cron 万一没生效，只要有访客就还能执行。
+            // 同样丢进 waitUntil，绝不挡住访客的计数响应。
+            ctx.waitUntil(
+              maybeRunSchedules(env).catch((e) => {
+                console.log('[sched] 兜底检查异常：' + (e && e.message));
+              })
+            );
           }
           return json({ path: path, views: r.views, total: r.total });
         }
@@ -462,7 +470,7 @@ export default {
         return;
       }
       // 定时文章：到点的发布/删除
-      const r = await runDueSchedules(env);
+      const r = await runDueSchedules(env, 'cron');
       if (r.done.length || r.failed.length || r.givenUp.length) {
         console.log('[sched] ' + JSON.stringify(r));
       }

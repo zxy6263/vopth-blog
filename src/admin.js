@@ -399,9 +399,11 @@ export async function deletePost(env, slug) {
 
 const SCHED_PREFIX = 'sched:';
 const SCHED_MAX_TRIES = 5;
-// 心跳：每次定时任务跑完都写一次，用来回答「定时任务到底有没有在跑」。
+// 心跳：每次跑完都写一次，用来回答「到底有没有在跑」。
 // ⚠️ 不能用 sched: 前缀 —— 那会被当成一条排期。
 const HEARTBEAT_KEY = 'cron:lastrun';
+// 兜底检查的最小间隔（秒）。别每次访问都去 list 一遍 KV。
+const LAZY_INTERVAL = 300;
 
 function scheduleKey(atEpoch) {
   return SCHED_PREFIX + String(atEpoch) + ':' + crypto.randomUUID().slice(0, 8);
@@ -533,7 +535,12 @@ export async function cancelScheduled(env, key) {
  * 定时任务入口：把所有到点的排期执行掉。
  * 由 src/index.js 的 scheduled() 调用（每 5 分钟一次）。
  */
-export async function runDueSchedules(env) {
+/**
+ * 跑一遍到点的排期。
+ * @param {string} via 谁触发的：'cron' | 'manual' | 'lazy'。写进心跳，
+ *                     免得"手动跑过一次"被误读成"定时任务在正常工作"。
+ */
+export async function runDueSchedules(env, via) {
   const now = Math.floor(Date.now() / 1000);
   const done = [];
   const failed = [];
@@ -589,19 +596,20 @@ export async function runDueSchedules(env) {
   }
 
   const result = { ok: true, checked: keys.length, done: done, failed: failed, givenUp: givenUp };
-  await writeHeartbeat(env, result);
+  await writeHeartbeat(env, result, via || 'unknown');
   return result;
 }
 
 /**
  * 写心跳。放最后、并且单独 try —— 心跳失败绝不能影响真正的发布/删除。
  */
-async function writeHeartbeat(env, result) {
+async function writeHeartbeat(env, result, via) {
   try {
     await env.PAGEVIEWS.put(
       HEARTBEAT_KEY,
       JSON.stringify({
         at: Math.floor(Date.now() / 1000),
+        via: via,
         checked: result.checked,
         done: result.done,
         failed: result.failed,
@@ -613,10 +621,35 @@ async function writeHeartbeat(env, result) {
 }
 
 /**
+ * 兜底：有人访问站点时顺便看看有没有到点的排期。
+ *
+ * 为什么需要它
+ *   cron 有没有生效，从代码和本地都看不出来（wrangler.jsonc 里写了不等于线上触发器存在）。
+ *   实测就遇到过「排期存下来了、手动一跑就删、但 cron 一直没触发」，
+ *   而本机 wrangler 又被代理挡住、连不上 Cloudflare 去核对触发器。
+ *   所以再加一条路：只要有人在读文章（/api/views 的 POST），就顺手检查一次。
+ *
+ * 代价
+ *   一次 KV 读（判断距上次跑够不够 5 分钟）。读额度 10 万/天，够用。
+ *   真到点时才 list + 写，所以平时几乎不产生额外写入。
+ *
+ * ⚠️ 调用方必须用 waitUntil，绝不能挡住访客的计数响应。
+ */
+export async function maybeRunSchedules(env) {
+  const now = Math.floor(Date.now() / 1000);
+  let last = 0;
+  try {
+    const raw = await env.PAGEVIEWS.get(HEARTBEAT_KEY);
+    if (raw) last = (JSON.parse(raw).at) || 0;
+  } catch (e) { /* 读不到就当没跑过 */ }
+
+  if (now - last < LAZY_INTERVAL) return { ok: true, skipped: true };
+  return await runDueSchedules(env, 'lazy');
+}
+
+/**
  * 手动触发一次（后台的「立即执行」按钮用）。
- * 跟定时任务走同一段代码、也写同一个心跳 —— 如果按钮管用、定时不管用，
- * 那基本就能断定是 cron 没配上，而不是这段逻辑的问题。
  */
 export async function runSchedulesNow(env) {
-  return await runDueSchedules(env);
+  return await runDueSchedules(env, 'manual');
 }

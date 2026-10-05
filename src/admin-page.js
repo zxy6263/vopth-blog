@@ -840,12 +840,18 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
         var lr = res.body.lastRun;
         var line = $('cronInfo');
         if (lr && lr.at) {
-          line.textContent = '定时任务上次运行：' + fmtTime(lr.at)
-            + '（检查 ' + lr.checked + ' 条，完成 ' + ((lr.done || []).length)
-            + '，失败 ' + ((lr.failed || []).length) + '）';
+          var viaText = lr.via === 'cron' ? '定时任务'
+            : (lr.via === 'manual' ? '你手动点的那次' : (lr.via === 'lazy' ? '访客触发的兜底检查' : (lr.via || '未知')));
+          line.textContent = '上次执行：' + fmtTime(lr.at) + '（由「' + viaText + '」触发）'
+            + '  检查 ' + lr.checked + ' 条，完成 ' + ((lr.done || []).length)
+            + '，失败 ' + ((lr.failed || []).length);
+          if (lr.via !== 'cron') {
+            line.textContent += '\n⚠️ 最近一次不是 cron 触发的 —— 说明定时触发器还没生效，'
+              + '目前靠"访客访问时兜底"在跑。想更准可以点右边手动执行，或去控制台看 Cron Triggers。';
+          }
         } else {
-          line.textContent = '⚠️ 定时任务从来没运行过 —— 说明 cron 没生效。'
-            + '先点右边「立即执行一次」手动跑，能跑通就说明是 cron 没配上的问题。';
+          line.textContent = '⚠️ 从来没执行过 —— 既没有 cron 触发，也没有访客触发过兜底。'
+            + '先点右边「立即执行一次」手动跑，能跑通就说明是触发的问题。';
         }
       })
       .catch(function (e) {
