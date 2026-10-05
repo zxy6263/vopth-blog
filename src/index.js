@@ -38,7 +38,7 @@ import { verifyAccess } from './access.js';
 import {
   createPost, buildMarkdown, listPosts, deletePost,
   scheduleCreate, scheduleDelete, listScheduled, cancelScheduled,
-  runDueSchedules, runSchedulesNow, maybeRunSchedules
+  runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 
@@ -474,8 +474,12 @@ export default {
       if (r.done.length || r.failed.length || r.givenUp.length) {
         console.log('[sched] ' + JSON.stringify(r));
       }
-    })().catch((e) => {
+    })().catch(async (e) => {
       console.log('[cron] 任务失败（' + cron + '）：' + (e && e.message));
+      // 失败也留痕 —— 否则界面上只有"从来没跑过"，分不清是没触发还是跑了就炸
+      try {
+        await recordCronFailure(env, cron === REPORT_CRON ? 'cron-report' : 'cron', e);
+      } catch (e2) { /* 忽略 */ }
     });
 
     if (ctx && typeof ctx.waitUntil === 'function') {

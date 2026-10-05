@@ -620,10 +620,45 @@ async function writeHeartbeat(env, result, via) {
       JSON.stringify({
         at: Math.floor(Date.now() / 1000),
         via: via,
+        failedToRun: '',
+        lastOkAt: Math.floor(Date.now() / 1000),
         checked: result.checked,
         done: result.done,
         failed: result.failed,
         givenUp: result.givenUp
+      }),
+      { expirationTtl: 7 * 24 * 3600 }
+    );
+  } catch (e) { /* 忽略 */ }
+}
+
+/**
+ * 记录一次失败。
+ *
+ * 为什么需要：如果 cron 触发了、但执行时抛异常，心跳就写不下去，
+ * 界面上只会显示"从来没执行过" —— 那和"cron 根本没触发"长得一模一样，
+ * 会把诊断带偏（今天已经被"手动跑过"带偏过一次了）。
+ * 所以失败也要留痕，并且保留上一次成功的时间，两个信息都要有。
+ */
+export async function recordCronFailure(env, via, err) {
+  try {
+    let prev = {};
+    try {
+      const raw = await env.PAGEVIEWS.get(HEARTBEAT_KEY);
+      if (raw) prev = JSON.parse(raw) || {};
+    } catch (e) { /* 读不到就算了 */ }
+
+    await env.PAGEVIEWS.put(
+      HEARTBEAT_KEY,
+      JSON.stringify({
+        at: Math.floor(Date.now() / 1000),
+        via: via,
+        failedToRun: String((err && err.message) || err),
+        lastOkAt: prev.lastOkAt || (prev.failedToRun ? 0 : prev.at) || 0,
+        checked: prev.checked,
+        done: prev.done,
+        failed: prev.failed,
+        givenUp: prev.givenUp
       }),
       { expirationTtl: 7 * 24 * 3600 }
     );

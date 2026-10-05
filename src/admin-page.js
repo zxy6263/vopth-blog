@@ -839,7 +839,11 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
         renderSched(res.body.items || []);
         var lr = res.body.lastRun;
         var line = $('cronInfo');
-        if (lr && lr.at) {
+        if (lr && lr.failedToRun) {
+          line.textContent = '⚠️ 上次执行【抛异常了】：' + lr.failedToRun
+            + '\n时间：' + fmtTime(lr.at) + '（' + (lr.via || '未知') + '）'
+            + (lr.lastOkAt ? '\n上次成功：' + fmtTime(lr.lastOkAt) : '\n从来没有成功执行过');
+        } else if (lr && lr.at) {
           var viaText = lr.via === 'cron' ? '定时任务'
             : (lr.via === 'manual' ? '你手动点的那次' : (lr.via === 'lazy' ? '访客触发的兜底检查' : (lr.via || '未知')));
           line.textContent = '上次执行：' + fmtTime(lr.at) + '（由「' + viaText + '」触发）'
