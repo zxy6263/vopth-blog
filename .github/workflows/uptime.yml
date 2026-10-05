@@ -1,0 +1,140 @@
+# ============================================================================
+#  vopth.xyz 可用性巡检
+# ============================================================================
+#
+#  做什么
+#    每 5 分钟从 GitHub 的机器上检查一遍 vopth.xyz：
+#      1. 主站能不能打开（HTTP 200）
+#      2. 浏览量接口有没有响应（/api/views）
+#      3. 定时任务还活着吗（/api/sched-status 的 lastRun 有没有在动）
+#    发现异常就往 FlashDuty 推一条告警，恢复正常就推一条恢复。
+#
+#  为什么放 GitHub Actions 而不是自己写
+#    · 这个仓库是公开的，Actions 免费且不限量
+#    · 它在【你的站之外】—— 站点挂了它照样跑，这正是状态页需要的前提
+#    · FlashDuty 自带的 Monitors 要自部署 monitedge 告警引擎，你没有常驻机器
+#
+#  ⚠️ 两个要知道的限制
+#    1. GitHub 的定时任务【不准时】。*/5 只是"大约每 5 分钟"，
+#       高峰期延迟 5~15 分钟很常见。状态页够用，但别当秒级监控。
+#    2. 仓库连续 60 天没有新提交，GitHub 会自动停用定时任务。
+#       你只要偶尔发文章（后台发文章也会提交）就不会触发。
+#
+#  需要配置
+#    仓库 Settings → Secrets and variables → Actions → New repository secret
+#      名字：FLASHDUTY_WEBHOOK
+#      值  ：FlashDuty 里那个告警集成的推送地址
+#    ⚠️ 没配这个 secret 的话，脚本只会检查、不会报警（也不会报错刷屏）。
+#
+# ============================================================================
+
+name: uptime
+
+on:
+  schedule:
+    # 每 5 分钟。这是 GitHub 允许的最短间隔。
+    - cron: '*/5 * * * *'
+  # 也允许手动点一下跑一次，方便调试
+  workflow_dispatch:
+
+# 同一时间只跑一个，避免堆积
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 巡检 vopth.xyz
+        env:
+          FLASHDUTY_WEBHOOK: ${{ secrets.FLASHDUTY_WEBHOOK }}
+        run: |
+          set -u
+
+          SITE="https://vopth.xyz"
+          # 定时任务的心跳超过这个秒数就算异常（cron 每 5 分钟一次，给它 20 分钟余量）
+          HEARTBEAT_MAX_AGE=1200
+
+          problems=""
+
+          # ---------- 1. 主站 ----------
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$SITE/" || echo "000")
+          echo "主站 HTTP $code"
+          if [ "$code" != "200" ]; then
+            problems="$problems\n· 主站打不开（HTTP $code）"
+          fi
+
+          # ---------- 2. 浏览量接口 ----------
+          api=$(curl -sS -m 20 "$SITE/api/views?path=/about/" || echo "")
+          echo "浏览量接口返回：${api:0:120}"
+          if ! echo "$api" | jq -e 'has("views")' >/dev/null 2>&1; then
+            problems="$problems\n· 浏览量接口没有正常响应"
+          fi
+
+          # ---------- 3. 定时任务心跳 ----------
+          st=$(curl -sS -m 20 "$SITE/api/sched-status" || echo "")
+          echo "排期状态：${st:0:200}"
+          # 用 jq 取，别用 sed —— JSON 结构一变正则就悄悄失配（和今天那个静默失败一个道理）
+          last=$(echo "$st" | jq -r '.lastRun.at // empty' 2>/dev/null || true)
+          if [ -z "$last" ]; then
+            problems="$problems\n· 读不到定时任务心跳（/api/sched-status 异常，或者从来没跑过）"
+          else
+            now=$(date +%s)
+            age=$(( now - last ))
+            echo "心跳距今 ${age} 秒"
+            if [ "$age" -gt "$HEARTBEAT_MAX_AGE" ]; then
+              mins=$(( age / 60 ))
+              problems="$problems\n· 定时任务已经 ${mins} 分钟没执行了（cron 可能没生效）"
+            fi
+          fi
+
+          # ---------- 汇总 ----------
+          if [ -n "$problems" ]; then
+            title="vopth.xyz 异常"
+            body=$(printf "检查发现问题：$problems")
+            status="Critical"
+            echo "::error::$title"
+          else
+            title="vopth.xyz 正常"
+            body="主站、接口、定时任务都正常。"
+            status="Ok"
+            echo "一切正常"
+          fi
+
+          if [ -z "${FLASHDUTY_WEBHOOK:-}" ]; then
+            echo "⚠️ 没有配置 FLASHDUTY_WEBHOOK，跳过推送。"
+            if [ "$status" = "Critical" ]; then
+              echo "（但上面已经列出问题，这条在 Actions 里标红了）"
+            fi
+            exit 0
+          fi
+
+          # ---------- 推给 FlashDuty ----------
+          # ⚠️ 这里的字段是按通用 webhook 猜的。等站主把 FlashDuty 告警集成页面
+          #    的"推送示例"发过来，按那个格式改一遍 —— 但别改 alert_key，
+          #    它是去重的依据：同一个 key 反复报只会有一条故障，不会刷屏。
+          #    用 jq 拼 JSON，避免 heredoc 缩进和手写转义出问题。
+          payload=$(jq -n \
+            --arg s "$status" \
+            --arg t "$title" \
+            --arg d "$body" \
+            '{
+               event_status: $s,
+               alert_key: "vopth-uptime",
+               title: $t,
+               description: $d,
+               resource: "vopth.xyz",
+               labels: { service: "vopth", source: "github-actions" }
+             }')
+
+          http=$(curl -sS -o /tmp/fd.out -w '%{http_code}' -m 20 \
+            -X POST -H 'Content-Type: application/json' \
+            -d "$payload" "$FLASHDUTY_WEBHOOK" || echo "000")
+          echo "推送到 FlashDuty：HTTP $http"
+          head -c 400 /tmp/fd.out || true
