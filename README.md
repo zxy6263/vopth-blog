@@ -19,6 +19,7 @@
 - [五、上线后请立刻改这几处](#五上线后请立刻改这几处)
 - [六、日常写作流程](#六日常写作流程)
 - [七、可选功能](#七可选功能)
+  - [网页后台：在网站上直接发文章](#网页后台在网站上直接发文章)
 - [八、常见问题排错](#八常见问题排错)
 - [九、成本](#九成本)
 
@@ -33,7 +34,7 @@
 - **没有服务器**：构建出来的 `public/` 是纯静态文件（HTML/CSS/JS/图片），不需要任何后端
 - **不需要备案**：托管在 Cloudflare 的海外节点，不涉及国内服务器
 - **自带 HTTPS**：证书由 Cloudflare 自动签发和续期，不用管
-- **免费且不限量**：纯静态资源、**没有 Worker 脚本**，所以静态请求不计费、不限量
+- **免费且不限量**：静态资源请求不计费、不限量。站点上有一个 Worker 脚本（浏览量计数、发邮件通知、网页后台），但**只有落到 `/api/*` 和 `/admin/` 的请求才会跑它**，其余请求原样交给静态资源层，所以日常访问仍然是免费不限量的
 - **不依赖国内被墙的 CDN**：字体图标、打字机、灯箱、分享按钮等全部打包在你自己站点里（`/pluginsSrc/`），不请求 jsDelivr / unpkg / Google Fonts
 
 浏览器打开控制台 Network 面板看一下就知道：**没有任何第三方域名的请求**。
@@ -718,6 +719,59 @@ author_avatar: false
 ```
 
 > 想改署名样式（圆角、间距、背景透明度等），改 `source/css/custom.css` 的第 9 节。
+
+### 网页后台：在网站上直接发文章
+
+打开 `https://vopth.xyz/admin/`，登录后填标题/正文，点发布 —— **不用开电脑、不用敲命令**，
+手机上就能发。提交走 GitHub API 往 `source/_posts/` 写一个文件，之后 Cloudflare 自动构建上线
+（和你在本地 `git push` 完全等价）。
+
+**这个入口是锁着的**：`/admin/` 由 Cloudflare Access 拦一道（邮箱验证码 / Google 登录），
+Worker 里再用 Access 的公钥做**真正的 JWT 签名校验**（`src/access.js`）。
+不是「看某个请求头存不存在」——那种做法可以被伪造。
+
+> ⚠️ 没配置好之前，`/admin/` 一律返回 **403**，这是**故意的**（fail closed）：
+> 宁可后台不可用，也不能让没鉴权的请求有机会动仓库。
+
+**页面为什么由 Worker 返回，而不是放进 `source/` 当静态页**
+
+1. 放进 `source/` 就会出现在公开仓库和公开站点上 —— 后台入口暴露给所有人扫，只会招来无谓的尝试
+2. 放在 Worker 里，就能在**返回 HTML 之前**先校验 Access：没通过鉴权的人连页面源码都拿不到，
+   而不是「能打开但点了没用」
+3. 代价：`/admin/` 的请求算 Worker 请求（会计费），但它一天也开不了几次
+
+**三个文件的职责**
+
+| 文件 | 做什么 |
+|---|---|
+| `src/index.js` | 路由：`/admin/` 返回页面；`/api/admin/post` 提交；`/api/admin/dry-run` 干跑（只回生成好的 Markdown 不提交） |
+| `src/access.js` | Access 鉴权：RS256 真签名校验 + `iss` / `aud` / `exp` 检查，失败一律拒绝 |
+| `src/admin.js` | 拼 front-matter（上海时间、真实秒数，纯函数可单测）+ 调 GitHub REST API |
+| `src/admin-page.js` | 后台页面的 HTML：手机优先、自动存本地草稿、防重复提交 |
+
+**配置（一次性，三步）**
+
+1. **GitHub 细粒度 PAT**：Settings → Developer settings → Fine-grained tokens →
+   只勾 `vopth-blog` 这一个仓库 → 权限 **Contents: Read and write**（别多给）→ 生成后
+   `npx wrangler secret put GITHUB_TOKEN`
+2. **Cloudflare Access**：Zero Trust → Access → Applications → Add → Self-hosted，
+   ⚠️ **要建两条**：`vopth.xyz` + path `admin`，以及 `vopth.xyz` + path `api/admin`。
+   每条加一个 Allow 策略（Include = 你的邮箱）。
+   > 为什么必须两条：Access 是**按路径**拦并注入 JWT 头的。只保护 `/admin` 的话，页面能打开，
+   > 但它后面调 `/api/admin/post` 时拿不到那个头，Worker 会（正确地）拒绝 —— 表现就是「登录了却发不出去」。
+3. 把应用详情页的 **AUD** 和团队域名填进 `wrangler.jsonc` 的 `vars`（模板里已经注释好了）：
+   ```jsonc
+   "ACCESS_TEAM_DOMAIN": "你的团队名.cloudflareaccess.com",
+   "ACCESS_AUD": "从应用详情页复制的 AUD"
+   ```
+   ⚠️ 部署时配置文件的 `vars` 会覆盖控制台手填的同名变量，别一边填一半。
+
+**几个已知边界**
+
+- 后台只用来发**新**文章。仓库里已有同名文件时 GitHub 要求带原文件的 sha 才能更新，
+  这里**故意不做** —— 免得静默覆盖你已发表的内容。改旧文章走本地那套工具
+- 提交失败会明确告诉你是「文件已存在」还是别的原因，不会静默吞掉
+- 页面里**没有任何密钥**，密钥只存在 Worker 的环境变量里
 
 ---
 

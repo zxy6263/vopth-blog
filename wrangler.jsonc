@@ -52,6 +52,28 @@
   ],
 
   // --------------------------------------------------------------------------
+  //  网页后台（/admin/）用到的变量
+  //
+  //  ⚠️ 这里【只放不是秘密的东西】。密钥一律用 `npx wrangler secret put <名字>`：
+  //       GITHUB_TOKEN     GitHub 细粒度 PAT，权限只需要 Contents: Read and write
+  //
+  //  ⚠️ 下面两个要等你先在 Cloudflare 后台把 Access 配好才能拿到，
+  //     所以现在没填 —— 没填时后台一律返回 403（fail closed），不会漏。
+  //     拿到之后取消注释并填上，然后重新部署：
+  //       ACCESS_TEAM_DOMAIN   形如 myteam.cloudflareaccess.com（不带 https://）
+  //       ACCESS_AUD           Access 应用的 Audience 标签，在应用详情页能看到
+  //
+  //  ⚠️ 注意：部署时「配置文件里的 vars」会覆盖控制台里手填的同名变量。
+  //     所以要么都写在下面，要么都在控制台填 —— 别一边一半。
+  // --------------------------------------------------------------------------
+  "vars": {
+    "GITHUB_REPO": "zxy6263/vopth-blog",
+    "GITHUB_BRANCH": "main"
+    // "ACCESS_TEAM_DOMAIN": "你的团队名.cloudflareaccess.com",
+    // "ACCESS_AUD": "一串十六进制"
+  },
+
+  // --------------------------------------------------------------------------
   //  定时任务（Cron Trigger）
   //
   //  每 3 小时跑一次 Worker 里的 scheduled()，发一封站点状态报告。

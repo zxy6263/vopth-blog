@@ -34,6 +34,9 @@
 
 import { sendMail } from './mail.js';
 import { checkMilestones, sendStatusReport } from './notify.js';
+import { verifyAccess } from './access.js';
+import { createPost, buildMarkdown } from './admin.js';
+import { ADMIN_PAGE } from './admin-page.js';
 
 const KV_PREFIX = 'pv:';
 const TOTAL_KEY = KV_PREFIX + '__total__';
@@ -202,6 +205,91 @@ export default {
         return json(out);
       } catch (e) {
         return json({ ok: false, error: String(e && e.message) }, 500);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    //  网页后台（发文章）
+    //
+    //  页面本身由 Worker 返回，而不是放进 source/ 当静态页 —— 这样就能在
+    //  返回 HTML 之前先校验 Cloudflare Access：没通过鉴权的人连页面都拿不到，
+    //  而不是「能打开但点了没用」。
+    //
+    //  鉴权用真正的 JWT 签名校验（见 src/access.js）。没配好 ACCESS_TEAM_DOMAIN
+    //  或 ACCESS_AUD 时一律 403（fail closed）—— 宁可后台打不开，也不能让
+    //  没鉴权的请求有机会去动仓库。
+    //  ------------------------------------------------------------------
+    if (p === '/admin' || p === '/admin/') {
+      const auth = await verifyAccess(request, env);
+      if (!auth.ok) {
+        return new Response(
+          '后台未启用或未通过 Cloudflare Access 鉴权。\n\n原因：' + auth.reason +
+          '\n\n配置见仓库 README 里「网页后台」一节。\n',
+          {
+            status: 403,
+            headers: {
+              'content-type': 'text/plain; charset=utf-8',
+              'cache-control': 'no-store',
+              'x-robots-tag': 'noindex, nofollow'
+            }
+          }
+        );
+      }
+      return new Response(ADMIN_PAGE, {
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-robots-tag': 'noindex, nofollow',
+          'referrer-policy': 'same-origin'
+        }
+      });
+    }
+
+    // ------------------------------------------------------------------
+    //  后台的两个接口。两个都必须通过 Access 鉴权。
+    //    POST /api/admin/post     真提交：写进 GitHub 仓库，触发自动构建
+    //    POST /api/admin/dry-run  干跑：只返回生成好的 Markdown，不提交
+    //                             （用来确认 front-matter 长什么样）
+    //  ------------------------------------------------------------------
+    if (p === '/api/admin/post' || p === '/api/admin/dry-run') {
+      if (request.method !== 'POST') {
+        return json({ error: 'method not allowed' }, 405);
+      }
+      const auth = await verifyAccess(request, env);
+      if (!auth.ok) {
+        return json({ error: 'forbidden', reason: auth.reason }, 403);
+      }
+
+      let body;
+      try {
+        body = await request.json();
+      } catch (e) {
+        return json({ error: '请求体不是合法 JSON' }, 400);
+      }
+
+      const post = {
+        title: String(body.title || '').trim(),
+        slug: String(body.slug || '').trim().toLowerCase(),
+        category: String(body.category || '').trim(),
+        tags: Array.isArray(body.tags) ? body.tags : [],
+        description: String(body.description || '').trim(),
+        content: String(body.content || '')
+      };
+
+      if (p === '/api/admin/dry-run') {
+        return json({
+          ok: true,
+          dryRun: true,
+          path: 'source/_posts/' + post.slug + '.md',
+          markdown: buildMarkdown(post)
+        });
+      }
+
+      try {
+        const r = await createPost(env, post);
+        return json(r, r.ok ? 200 : (r.status && r.status >= 400 && r.status < 600 ? r.status : 500));
+      } catch (e) {
+        return json({ ok: false, error: '提交失败：' + String(e && e.message) }, 500);
       }
     }
 
