@@ -12,7 +12,8 @@
     "new-post": "node tools/new-post.js",
     "del-post": "node tools/del-post.js",
     "deploy": "hexo deploy",
-    "check:admin": "node tools/check-admin-page.js"
+    "check:admin": "node tools/check-admin-page.js",
+    "check:worker": "wrangler deploy --dry-run"
   },
   "engines": {
     "node": ">=20"

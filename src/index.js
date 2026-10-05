@@ -465,9 +465,8 @@ export default {
                 console.log('[notify] checkMilestones 异常：' + (e && e.message));
               })
             );
-          // 兜底跑定时文章：cron 万一没生效，只要有访客就还能执行。
-          // 同样丢进 waitUntil，绝不挡住访客的计数响应。
-          if (ctx && typeof ctx.waitUntil === 'function') {
+            // 兜底跑定时文章：cron 万一没生效，只要有访客就还能执行。
+            // 同样丢进 waitUntil，绝不挡住访客的计数响应。
             ctx.waitUntil(
               maybeRunSchedules(env).catch((e) => {
                 console.log('[sched] 兜底检查异常：' + (e && e.message));
