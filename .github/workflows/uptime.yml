@@ -97,7 +97,7 @@ jobs:
           # ---------- 汇总 ----------
           if [ -n "$problems" ]; then
             title="vopth.xyz 异常"
-            body=$(printf "检查发现问题：$problems")
+            body=$(printf '检查发现问题：%b' "$problems")
             status="Critical"
             echo "::error::$title"
           else
@@ -116,21 +116,31 @@ jobs:
           fi
 
           # ---------- 推给 FlashDuty ----------
-          # ⚠️ 这里的字段是按通用 webhook 猜的。等站主把 FlashDuty 告警集成页面
-          #    的"推送示例"发过来，按那个格式改一遍 —— 但别改 alert_key，
-          #    它是去重的依据：同一个 key 反复报只会有一条故障，不会刷屏。
-          #    用 jq 拼 JSON，避免 heredoc 缩进和手写转义出问题。
+          # 字段按「标准告警事件」的正式规格（控制台右侧文档说明）：
+          #   title_rule    必填，告警标题
+          #   event_status  必填，首字母大写的枚举：Critical / Warning / Info / Ok
+          #                 Ok 表示恢复，会把之前的告警自动关掉
+          #   alert_key     告警标识。恢复事件必须带，且要和首次上报的一致 ——
+          #                 所以固定成 vopth-uptime，同一个故障反复报只会有一条
+          #   description   告警描述
+          #   labels        标签 map，key/value 都是 string。
+          #                 ⚠️ 没有顶层 resource 字段，resource 是放在 labels 里的
+          # ⚠️ 推送地址要带 ?integration_key=...，整串直接放进 secret。
           payload=$(jq -n \
             --arg s "$status" \
             --arg t "$title" \
             --arg d "$body" \
             '{
+               title_rule: $t,
                event_status: $s,
                alert_key: "vopth-uptime",
-               title: $t,
                description: $d,
-               resource: "vopth.xyz",
-               labels: { service: "vopth", source: "github-actions" }
+               labels: {
+                 service: "vopth",
+                 resource: "vopth.xyz",
+                 check: "site+api+sched",
+                 source: "github-actions"
+               }
              }')
 
           http=$(curl -sS -o /tmp/fd.out -w '%{http_code}' -m 20 \
