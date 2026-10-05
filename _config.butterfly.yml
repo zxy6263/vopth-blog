@@ -163,7 +163,13 @@ footer:
   # 页脚最下面那行是免责声明。
   # 站点用了网络上的封面图和视频素材，把「来源」和「怎么找我删」写出来，
   # 比什么都不写稳妥；「联系」做成可点的邮箱，别让人还得自己去找地址。
-  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a><br><span class="footer-disclaimer">封面壁纸均来源于网络，侵权请<a href="mailto:3585648116@qq.com">联系</a>删除</span>'
+  #
+  # 末尾那个 <flashduty-status-widget type="badge"> 是实时状态徽章：
+  #   · badge 变体【平时也显示】（"运行正常"），点一下进状态页 —— 相当于常驻入口
+  #   · 另外在 inject.bottom 里还挂了一个 type="banner" 的同款组件，
+  #     那个只在【服务异常时】才出现（平时 data-empty 自动隐藏），做灾难提示。
+  #     两个共用同一个 widget.js（页面底部只加载一次脚本），互不冲突。
+  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a><br><span class="footer-disclaimer">封面壁纸均来源于网络，侵权请<a href="mailto:3585648116@qq.com">联系</a>删除</span> · <flashduty-status-widget page="https://statuspage.flashcat.cloud/vopth" type="badge" theme="auto" locale="zh"></flashduty-status-widget>'
 
 # ------------------------------------------------------------------ 侧边栏
 aside:
