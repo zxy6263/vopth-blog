@@ -421,7 +421,22 @@ export default {
     // 每次排查都要人肉念一遍，太慢。这里只给"数量和时刻"，不给 slug / 标题。
     if (p === '/api/sched-status' || p === '/api/sched-status/') {
       try {
+        // ⭐ 顺手跑一次到期检查。为什么挂在这个接口上：
+        //   GitHub Actions 的 uptime workflow 每 5 分钟请求一次这里，请求是从
+        //   GitHub 的服务器发出的 —— 不依赖访客、不依赖 cron。
+        //   实测 Cloudflare 的 Cron 触发器在控制台里显示正常、"下次运行"时间也对，
+        //   但 Worker 的 scheduled() 从来没被调用过（心跳里 failedToRun 一直是空）。
+        //   在这条腿修好之前，这个由外部定时器驱动的入口就是最可靠的一条。
+        //   刻意 await（而不是丢 waitUntil）：这样返回给调用方的就是跑完后的状态，
+        //   排查时一次请求就能看到结果。到点需要跑时最坏多花一两秒（要提交 GitHub）。
+        try {
+          await maybeRunSchedules(env);
+        } catch (e) {
+          console.log('[sched] sched-status 兜底异常：' + (e && e.message));
+        }
         const st = await scheduleStatus(env);
+        // 部署标记：用来确认"新代码到底上线了没有"。旧版本没有这个字段。
+        st.build = '2026-10-06-lazyonstatus';
         return json(st, 200, { 'cache-control': 'no-store' });
       } catch (e) {
         return json({ ok: false, error: String(e && e.message) }, 500, { 'cache-control': 'no-store' });
