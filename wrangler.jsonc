@@ -72,10 +72,12 @@
 
     // Cloudflare Access（页面和接口都要过它）
     "ACCESS_TEAM_DOMAIN": "lucky-credit-a531.cloudflareaccess.com",
-    // ⚠️ 每个 Access 应用有自己的 AUD。站点保护了两个路径
-    //    （/admin 和 /api/admin），所以如果建成了【两个应用】，
-    //    这里就要写两个 AUD，用逗号隔开。
-    "ACCESS_AUD": "8419b4cbc457ea7267faaf6245fd532dfcefca9adeda002aa56e4b60bfbfa9c2"
+    // ⚠️ 每个 Access 应用有自己的 AUD。这个站点保护了两个路径，
+    //    所以是【两个应用、两个 AUD】，用逗号隔开。缺一个的症状：
+    //    页面能登录，但点发布一直失败（那个请求的 JWT 验不过）。
+    //    怎么拿到这两个值：没登录时访问 /admin/ 和 /api/admin/post，
+    //    Cloudflare 会 302 到登录页，URL 里 meta= 那段 JWT 解出来就是 aud。
+    "ACCESS_AUD": "8419b4cbc457ea7267faaf6245fd532dfcefca9adeda002aa56e4b60bfbfa9c2,2c78211e235e97c793ff438bf3df84afe89ca79e0002ffe08815ae618625580d"
   },
 
   // --------------------------------------------------------------------------
