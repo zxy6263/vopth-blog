@@ -40,9 +40,15 @@ function decodeJson(bytes) {
  */
 export async function verifyAccess(request, env) {
   const teamDomain = env.ACCESS_TEAM_DOMAIN;
-  const aud = env.ACCESS_AUD;
+  // ⚠️ Cloudflare Access 里【每个应用有自己的 AUD】。
+  //    这个站点需要保护两个路径（/admin 和 /api/admin），
+  //    所以要么是两个应用、要么是一个应用挂两个目标 —— 前者会产生两个 AUD。
+  //    这里按逗号/空格/换行拆成列表，任意一个匹配即通过。
+  const audList = String(env.ACCESS_AUD || '')
+    .split(/[\s,]+/)
+    .filter(Boolean);
 
-  if (!teamDomain || !aud) {
+  if (!teamDomain || audList.length === 0) {
     // 没配好就别放人进来。宁可后台打不开，也不能让没鉴权的请求改仓库。
     return { ok: false, reason: 'access_not_configured' };
   }
@@ -73,7 +79,7 @@ export async function verifyAccess(request, env) {
     return { ok: false, reason: 'bad_issuer' };
   }
   const tokenAud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!tokenAud.includes(aud)) {
+  if (!tokenAud.some((a) => audList.includes(a))) {
     return { ok: false, reason: 'bad_audience' };
   }
 
