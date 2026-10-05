@@ -721,3 +721,69 @@
   color: inherit;
   text-decoration: underline;
 }
+
+/* ---------------------------------------------------------------------------
+ *  14. 阅读进度条
+ *
+ *  由 source/js/reading-progress.js 插入。只在有正文容器的页面出现。
+ *  z-index 要压过固定导航栏（导航栏是 fixed 在顶部的），否则会被盖住。
+ *  pointer-events: none —— 它只是一条线，不能挡住底下的点击。
+ * ------------------------------------------------------------------------- */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 10002;
+  pointer-events: none;
+  background: transparent;
+}
+
+.reading-progress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, #4a6cf7, #7c5cff);
+  will-change: transform;
+}
+
+/* ---------------------------------------------------------------------------
+ *  15. 文章底部的「在 GitHub 上编辑此页」
+ *
+ *  由 source/js/post-edit.js 插入到正文之后。
+ *  分隔线用半透明灰（不写死颜色），亮色暗色模式都能用。
+ * ------------------------------------------------------------------------- */
+.post-edit-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 6px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(128, 128, 128, 0.28);
+  font-size: 0.88rem;
+}
+
+.post-edit-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--font-color);
+  background: var(--text-bg-hover);
+  transition: all 0.3s;
+}
+
+.post-edit-footer-link:hover {
+  color: #fff;
+  background: #4a6cf7;
+}
+
+.post-edit-footer-hint {
+  font-size: 0.85em;
+  color: var(--card-meta);
+}

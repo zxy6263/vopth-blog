@@ -138,6 +138,20 @@ noticeOutdate:
   message_prev: '本文最后更新于'
   message_next: '天前，内容可能已经过时，如有错误欢迎指正。'
 
+# 文章底部的「在 GitHub 上编辑此页」
+#
+# ⚠️ url 必须以 source/ 结尾：主题拼出来的是 url + page.source，
+#    而 page.source 形如 _posts/blog-build-notes.md。
+#
+# ⚠️ 主题其实把这个链接渲染在【文章头部】的 post-info 里（见
+#    includes/header/post-info.pug），和「发表于 / 更新于」挤在一起。
+#    站主要的是文章【底部】，所以由 source/js/post-edit.js 把它挪下去、
+#    换个措辞再显示。配置这里只负责让主题把带正确路径的 <a> 渲染出来 ——
+#    那个路径（source/_posts/xxx.md）是构建时才知道的，前端拼不出来。
+post_edit:
+  enable: true
+  url: https://github.com/zxy6263/vopth-blog/edit/main/source/
+
 # ------------------------------------------------------------------ 页脚
 footer:
   owner:
@@ -393,3 +407,9 @@ inject:
     # 浏览量：显示「阅读 N」和侧边栏「总访问量」。
     # 计数接口是 /api/views，由 src/index.js 那个 Worker 提供（同域，无需跨域）。
     - '<script src="/js/page-views.js" defer></script>'
+    # 阅读进度条：顶部一条细线。脚本自己判断有没有正文容器，列表页不显示。
+    - '<script src="/js/reading-progress.js" defer></script>'
+    # 把主题渲染在文章头部的「编辑此页」链接挪到正文末尾（配套 post_edit）。
+    - '<script src="/js/post-edit.js" defer></script>'
+    # 搜索快捷键：Ctrl+K / Cmd+K / 直接按斜杠。
+    - '<script src="/js/search-shortcut.js" defer></script>'
