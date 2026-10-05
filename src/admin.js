@@ -345,9 +345,15 @@ export async function deletePost(env, slug) {
       const m = /^cover:\s*"?([^"\r\n]+)"?\s*$/m.exec(fm[1]);
       if (m) {
         let c = m[1].trim().replace(/^\/+/, ''); // img/covers/xxx.jpg
-        if (c && !c.includes('..')) {
+        // ⚠️ front-matter 里的 cover 是【站点 URL】（/img/covers/x.jpg），
+        //    而 GitHub API 要的是【仓库路径】（source/img/covers/x.jpg）——
+        //    差了 "source/" 这个前缀。2026-10-06 踩过：只去掉开头的 / 就当仓库路径用，
+        //    于是 getFile 永远 404、封面永远删不掉，而且是【静默的】——
+        //    文章删了、图留着，界面上完全看不出来，比报错还糟。
+        if (c.indexOf('img/') === 0) c = 'source/' + c;
+        if (c && c.indexOf('..') === -1) {
           const base = c.split('/').pop();
-          if (!COVER_PROTECTED.includes(base)) coverToDelete = c;
+          if (COVER_PROTECTED.indexOf(base) === -1) coverToDelete = c;
         }
       }
     }
@@ -367,6 +373,10 @@ export async function deletePost(env, slug) {
         const cr = await deleteFile(env, coverToDelete, cf.sha, 'delete cover: ' + slug);
         if (cr.ok) coverDeleted = coverToDelete;
         else coverNote = '文章已删，但封面没删掉：' + cr.error;
+      } else {
+        // 找不到也要说出来 —— 静默跳过正是当初"图留着没人知道"的原因
+        coverNote = '文章已删。front-matter 里写着封面 ' + coverToDelete
+          + '，但在仓库里没找到它，所以没删（可能路径不对，或本来就没有这张图）。';
       }
     } catch (e) {
       coverNote = '文章已删，但封面没删掉：' + String(e && e.message);
