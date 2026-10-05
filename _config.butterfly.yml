@@ -413,3 +413,6 @@ inject:
     - '<script src="/js/post-edit.js" defer></script>'
     # 搜索快捷键：Ctrl+K / Cmd+K / 直接按斜杠。
     - '<script src="/js/search-shortcut.js" defer></script>'
+    # 右下角「设置」里加一个进后台的入口（往 #rightside-config-hide 里插一个 <a>）。
+    # 不想用就把这一行删掉，不影响后台本身。
+    - '<script src="/js/admin-entry.js" defer></script>'
