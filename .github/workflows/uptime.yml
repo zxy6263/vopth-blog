@@ -1,30 +1,30 @@
 # ============================================================================
-#  vopth.xyz 可用性巡检
+#  vopth.xyz 巡检（12 项）
 # ============================================================================
 #
-#  做什么
-#    每 5 分钟从 GitHub 的机器上检查一遍 vopth.xyz：
-#      1. 主站能不能打开（HTTP 200）
-#      2. 浏览量接口有没有响应（/api/views）
-#      3. 定时任务还活着吗（/api/sched-status 的 lastRun 有没有在动）
-#    发现异常就往 FlashDuty 推一条告警，恢复正常就推一条恢复。
+#  为什么是这些检查项
+#    最初只查「主站 200 / 接口有响应 / 心跳在动」三项，几乎永远不会触发 ——
+#    Cloudflare Workers 的静态资源基本不会挂。真正会出事的是【人为错误】，
+#    而且 2026-10-06 一夜之间就出了两次：
+#      · 手改 Worker 写错一个 { → CI 部署连续失败一小时，没人发现
+#        （因为站点还能打开，静态资源是上一次部署留下的）
+#      · 封面图路径写错 → 图片 404，还是站主自己发现的
+#    所以现在查的是「内容完整性 + 部署到底有没有生效」，而不是「服务器活着吗」。
 #
-#  为什么放 GitHub Actions 而不是自己写
-#    · 这个仓库是公开的，Actions 免费且不限量
-#    · 它在【你的站之外】—— 站点挂了它照样跑，这正是状态页需要的前提
-#    · FlashDuty 自带的 Monitors 要自部署 monitedge 告警引擎，你没有常驻机器
+#  两项分开上报，方便 FlashDuty 的 AI 分级处理
+#    vopth-site  影响访客阅读的（打不开 / 白页 / 样式丢失 / 部署没生效 / 内容缺失）
+#    vopth-warn  不影响阅读但要知道的（定时任务、响应慢、证书临期）
+#    两个 alert_key 各自独立，恢复时各自推 Ok。
 #
-#  ⚠️ 两个要知道的限制
-#    1. GitHub 的定时任务【不准时】。*/5 只是"大约每 5 分钟"，
-#       高峰期延迟 5~15 分钟很常见。状态页够用，但别当秒级监控。
+#  已知限制
+#    1. GitHub 的定时任务不准时，*/5 实际可能延迟 5~15 分钟。
 #    2. 仓库连续 60 天没有新提交，GitHub 会自动停用定时任务。
-#       你只要偶尔发文章（后台发文章也会提交）就不会触发。
 #
 #  需要配置
-#    仓库 Settings → Secrets and variables → Actions → New repository secret
+#    Settings → Secrets and variables → Actions → New repository secret
 #      名字：FLASHDUTY_WEBHOOK
-#      值  ：FlashDuty 里那个告警集成的推送地址
-#    ⚠️ 没配这个 secret 的话，脚本只会检查、不会报警（也不会报错刷屏）。
+#      值  ：FlashDuty 告警集成的推送地址（整串，带 ?integration_key=...）
+#    没配的话：手动触发会明确报红；定时触发只记一行日志、不推送。
 #
 # ============================================================================
 
@@ -32,12 +32,9 @@ name: uptime
 
 on:
   schedule:
-    # 每 5 分钟。这是 GitHub 允许的最短间隔。
     - cron: '*/5 * * * *'
-  # 也允许手动点一下跑一次，方便调试
   workflow_dispatch:
 
-# 同一时间只跑一个，避免堆积
 concurrency:
   group: uptime
   cancel-in-progress: false
@@ -48,13 +45,11 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
 
     steps:
-      # 先单独把 secret 检查清楚。
-      # 为什么需要：原来的设计是"没配 secret 就只检查、不报警、也不报错"，
-      # 结果 secret 没配或名字写错时【运行是绿的、什么事都没发生】，完全看不出问题。
-      # 现在：手动触发 → 缺 secret 就明确报红并说明；定时触发 → 只记一行日志，不刷屏。
+      # 先单独把 secret 检查清楚 —— 缺 secret 时运行是绿的、什么都看不出来，
+      # 这个坑踩过一次（见 commit 4cb2534）。
       - name: 检查 Secret 是否配置
         env:
           HOOK: ${{ secrets.FLASHDUTY_WEBHOOK }}
@@ -63,13 +58,18 @@ jobs:
             if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
               echo "::error::没有拿到 FLASHDUTY_WEBHOOK —— 要么没建，要么名字不对（必须完全一致、大小写敏感、前后无空格）"
               echo "位置：仓库 Settings → Secrets and variables → Actions"
-              echo "正确名字：FLASHDUTY_WEBHOOK"
               exit 1
             fi
-            echo "⚠️ 定时运行：没有 FLASHDUTY_WEBHOOK，本次只检查、不推送（这是预期行为，不是故障）"
+            echo "⚠️ 定时运行：没有 FLASHDUTY_WEBHOOK，本次只检查、不推送（预期行为，不是故障）"
           else
             echo "✅ FLASHDUTY_WEBHOOK 已配置（长度 ${#HOOK} 字符，不打印内容）"
           fi
+
+      # 需要仓库信息：最新提交的 SHA 和时间（判断部署有没有生效）、文章数
+      - name: 取仓库信息
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: 巡检 vopth.xyz
         env:
@@ -78,93 +78,272 @@ jobs:
           set -u
 
           SITE="https://vopth.xyz"
-          # 定时任务的心跳超过这个秒数就算异常（cron 每 5 分钟一次，给它 20 分钟余量）
-          HEARTBEAT_MAX_AGE=1200
+          TMP=$(mktemp -d)
+          HEARTBEAT_MAX_AGE=1200      # 定时任务心跳超过 20 分钟算异常（cron 每 5 分钟）
+          SLOW_MS=3000                # 首页超过 3 秒算慢
+          CERT_MIN_DAYS=14            # 证书剩余少于 14 天提醒
+          DEPLOY_GRACE=720            # 提交后 12 分钟内不算"部署没生效"（构建要一两分钟）
 
-          problems=""
+          crit=""
+          warn=""
+          oknotes=""
 
-          # ---------- 1. 主站 ----------
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$SITE/" || echo "000")
-          echo "主站 HTTP $code"
-          if [ "$code" != "200" ]; then
-            problems="$problems\n· 主站打不开（HTTP $code）"
+          add_crit() { crit="${crit}\n· $1"; echo "  ❌ $1"; }
+          add_warn() { warn="${warn}\n· $1"; echo "  ⚠️  $1"; }
+
+          # 前置：确认 JSON 解析工具可用。
+          # 为什么单独查这个：2026-10-06 这一夜被"坏掉的尺子"坑过两次
+          # （node --check 说语法没问题、Get-Date -UFormat %s 多算了 8 小时），
+          # 都是工具本身不对却让人怀疑被测对象。巡检也一样 ——
+          # jq 要是没有，绝不能把「我解析不了」报成「站点坏了」并点亮状态页。
+          HAVE_JQ=0
+          command -v jq >/dev/null 2>&1 && HAVE_JQ=1
+          if [ "$HAVE_JQ" = "0" ]; then
+            echo "  ⚠️ 环境里没有 jq，将使用降级解析（这是巡检环境的问题，不代表站点故障）"
           fi
 
-          # ---------- 2. 浏览量接口 ----------
-          api=$(curl -sS -m 20 "$SITE/api/views?path=/about/" || echo "")
-          echo "浏览量接口返回：${api:0:120}"
-          if ! echo "$api" | jq -e 'has("views")' >/dev/null 2>&1; then
-            problems="$problems\n· 浏览量接口没有正常响应"
-          fi
+          # 不依赖 jq 的简单取值：从 JSON 文本里抓第一个匹配的字段。
+          # 只用于扁平字段（commit / articles / views / lastRun.at 这种唯一名字）。
+          jget() {
+            printf '%s' "$1" \
+              | grep -o "\"$2\"[[:space:]]*:[[:space:]]*\(\"[^\"]*\"\|[0-9][0-9.]*\)" \
+              | head -1 | sed 's/^[^:]*:[[:space:]]*//; s/^"//; s/"$//'
+          }
 
-          # ---------- 3. 定时任务心跳 ----------
-          st=$(curl -sS -m 20 "$SITE/api/sched-status" || echo "")
-          echo "排期状态：${st:0:200}"
-          # 用 jq 取，别用 sed —— JSON 结构一变正则就悄悄失配（和今天那个静默失败一个道理）
-          last=$(echo "$st" | jq -r '.lastRun.at // empty' 2>/dev/null || true)
-          if [ -z "$last" ]; then
-            problems="$problems\n· 读不到定时任务心跳（/api/sched-status 异常，或者从来没跑过）"
+          echo "==================== 1. 首页 ===================="
+          home=$(curl -sS -o "$TMP/home.html" -w '%{http_code} %{time_total}' -m 20 "$SITE/" || echo "000 0")
+          hcode=$(echo "$home" | awk '{print $1}')
+          htime=$(echo "$home" | awk '{print $2}')
+          hms=$(awk -v t="$htime" 'BEGIN{printf "%d", t*1000}')
+          echo "  HTTP $hcode   耗时 ${hms}ms"
+          if [ "$hcode" != "200" ]; then
+            add_crit "首页打不开（HTTP $hcode）—— 访客看到的是错误页"
           else
-            now=$(date +%s)
-            age=$(( now - last ))
-            echo "心跳距今 ${age} 秒"
-            if [ "$age" -gt "$HEARTBEAT_MAX_AGE" ]; then
-              mins=$(( age / 60 ))
-              problems="$problems\n· 定时任务已经 ${mins} 分钟没执行了（cron 可能没生效）"
+            nlinks=$(grep -o 'href="/20[0-9][0-9]/[0-9][0-9]/[0-9][0-9]/[^"]*/"' "$TMP/home.html" | sort -u | wc -l)
+            echo "  首页里有 $nlinks 篇文章链接"
+            if [ "$nlinks" -lt 1 ]; then
+              add_crit "首页返回 200 但里面一篇文章链接都没有 —— 页面可能是空的或模板坏了"
+            fi
+            if [ "$hms" -gt "$SLOW_MS" ]; then
+              add_warn "首页响应 ${hms}ms，超过 ${SLOW_MS}ms，访问偏慢"
             fi
           fi
 
-          # ---------- 汇总 ----------
-          if [ -n "$problems" ]; then
-            title="vopth.xyz 异常"
-            body=$(printf '检查发现问题：%b' "$problems")
-            status="Critical"
-            echo "::error::$title"
+          echo "==================== 2. 关键页面 ===================="
+          for page in "/about/" "/archives/"; do
+            code=$(curl -sS -o "$TMP/page.html" -w '%{http_code}' -m 20 "$SITE$page" || echo 000)
+            size=$(wc -c < "$TMP/page.html" 2>/dev/null || echo 0)
+            echo "  $page HTTP $code  ${size}字节"
+            if [ "$code" != "200" ]; then
+              add_crit "$page 打不开（HTTP $code）"
+            elif [ "$size" -lt 3000 ]; then
+              add_crit "$page 返回 200 但内容只有 ${size} 字节，页面像是空的"
+            fi
+          done
+
+          echo "==================== 3. 随机抽一篇文章 ===================="
+          art=$(grep -o 'href="/20[0-9][0-9]/[0-9][0-9]/[0-9][0-9]/[^"]*/"' "$TMP/home.html" 2>/dev/null | head -1 | sed 's/href="//;s/"$//' || true)
+          if [ -n "$art" ]; then
+            code=$(curl -sS -o "$TMP/art.html" -w '%{http_code}' -m 20 "$SITE$art" || echo 000)
+            size=$(wc -c < "$TMP/art.html" 2>/dev/null || echo 0)
+            paras=$(grep -o '<p>' "$TMP/art.html" 2>/dev/null | wc -l)
+            echo "  $art HTTP $code  ${size}字节  段落 $paras"
+            if [ "$code" != "200" ]; then
+              add_crit "文章页打不开：$art（HTTP $code）"
+            elif [ "$paras" -lt 1 ]; then
+              add_crit "文章页 $art 返回 200 但没有正文段落 —— 内容可能没生成出来"
+            fi
           else
-            title="vopth.xyz 正常"
-            body="主站、接口、定时任务都正常。"
-            status="Ok"
-            echo "一切正常"
+            add_crit "从首页抽不到任何文章链接，无法检查文章页"
           fi
+
+          echo "==================== 4. 关键静态资源 ===================="
+          for res in "/css/index.css" "/js/main.js" "/js/utils.js" "/img/favicon.svg" "/img/avatar.jpg"; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$SITE$res" || echo 000)
+            echo "  $res HTTP $code"
+            if [ "$code" != "200" ]; then
+              add_crit "$res 取不到（HTTP $code）—— 页面的样式或脚本会缺失"
+            fi
+          done
+
+          echo "==================== 5. 订阅与索引文件 ===================="
+          for f in "/search.xml" "/atom.xml" "/sitemap.xml"; do
+            code=$(curl -sS -o "$TMP/$(basename $f)" -w '%{http_code}' -m 25 "$SITE$f" || echo 000)
+            size=$(wc -c < "$TMP/$(basename $f)" 2>/dev/null || echo 0)
+            echo "  $f HTTP $code  ${size}字节"
+            if [ "$code" != "200" ]; then
+              add_crit "$f 取不到（HTTP $code）—— 站内搜索或订阅会坏"
+            elif [ "$size" -lt 500 ]; then
+              add_crit "$f 只有 ${size} 字节，内容像是空的"
+            fi
+          done
+
+          echo "==================== 6. 部署有没有生效 ===================="
+          repo_sha=$(git rev-parse HEAD)
+          repo_ts=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          commit_age=$(( now - repo_ts ))
+          repo_articles=$(find source/_posts -maxdepth 1 -name '*.md' | wc -l)
+          echo "  仓库 HEAD=${repo_sha:0:7}（${commit_age}秒前提交）  源文章 $repo_articles 篇"
+
+          bi=$(curl -sS -m 20 "$SITE/build-info.json" 2>/dev/null || echo "")
+          if [ "$HAVE_JQ" = "1" ]; then
+            site_sha=$(echo "$bi" | jq -r '.commit // empty' 2>/dev/null || true)
+            site_articles=$(echo "$bi" | jq -r '.articles // empty' 2>/dev/null || true)
+            site_built=$(echo "$bi" | jq -r '.built_at // empty' 2>/dev/null || true)
+          else
+            site_sha=$(jget "$bi" commit)
+            site_articles=$(jget "$bi" articles)
+            site_built=$(jget "$bi" built_at)
+          fi
+
+          if [ -z "$site_sha" ]; then
+            if [ "$commit_age" -gt "$DEPLOY_GRACE" ]; then
+              add_crit "线上读不到 build-info.json —— 部署可能一直没生效（最新提交已过 $((commit_age/60)) 分钟）"
+            else
+              echo "  线上还没有 build-info.json（本次提交才 ${commit_age} 秒，可能还在构建）"
+            fi
+          elif [ "$site_sha" != "$repo_sha" ]; then
+            if [ "$commit_age" -gt "$DEPLOY_GRACE" ]; then
+              add_crit "部署没生效：线上是 ${site_sha:0:7}，仓库最新是 ${repo_sha:0:7}（提交已过 $((commit_age/60)) 分钟还没上线）"
+            else
+              echo "  线上 ${site_sha:0:7} 比仓库旧，但提交才 ${commit_age} 秒，正在构建中"
+            fi
+          else
+            echo "  ✅ 部署已生效（线上就是 ${site_sha:0:7}，构建于 $site_built）"
+          fi
+
+          echo "==================== 7. 文章数对得上吗 ===================="
+          site_entries=$(grep -o '<entry>' "$TMP/search.xml" 2>/dev/null | wc -l || echo 0)
+          echo "  源文件 $repo_articles 篇   search.xml 里 $site_entries 条   build-info 里 $site_articles"
+          if [ "$site_entries" -lt "$repo_articles" ]; then
+            add_warn "有文章没生成出来：源文件 $repo_articles 篇，线上搜索索引只有 $site_entries 条"
+          fi
+          if [ -n "$site_articles" ] && [ "$site_articles" != "$repo_articles" ]; then
+            add_warn "构建时数到的文章数（$site_articles）和源文件数（$repo_articles）对不上"
+          fi
+
+          echo "==================== 8. 浏览量接口 ===================="
+          api=$(curl -sS -m 20 "$SITE/api/views?path=/about/" || echo "")
+          echo "  返回 ${api:0:100}"
+          if [ "$HAVE_JQ" = "1" ]; then
+            hasviews=$(echo "$api" | jq -e 'has("views")' >/dev/null 2>&1 && echo 1 || echo 0)
+          else
+            hasviews=$(printf '%s' "$api" | grep -q '"views"' && echo 1 || echo 0)
+          fi
+          if [ "$hasviews" != "1" ]; then
+            add_crit "浏览量接口没有正常响应 —— 页面上的阅读量会显示不出来"
+          fi
+
+          echo "==================== 9. 定时任务心跳 ==================="
+          st=$(curl -sS -m 20 "$SITE/api/sched-status" || echo "")
+          if [ "$HAVE_JQ" = "1" ]; then
+            last=$(echo "$st" | jq -r '.lastRun.at // empty' 2>/dev/null || true)
+            via=$(echo "$st" | jq -r '.lastRun.via // "?"' 2>/dev/null || echo "?")
+            pend=$(echo "$st" | jq -r '.pendingCount // 0' 2>/dev/null || echo 0)
+          else
+            last=$(jget "$st" at)
+            via=$(jget "$st" via)
+            pend=$(jget "$st" pendingCount)
+          fi
+          if [ -z "$last" ]; then
+            add_crit "读不到定时任务心跳（/api/sched-status 异常，或者从来没跑过）"
+          else
+            age=$(( $(date +%s) - last ))
+            echo "  心跳 ${age} 秒前（via=${via:-?}）  待执行排期 ${pend:-0}"
+            if [ "$age" -gt "$HEARTBEAT_MAX_AGE" ]; then
+              add_warn "定时任务已经 $((age/60)) 分钟没执行了 —— 排期文章会晚发（待执行 ${pend:-0} 条）"
+            fi
+          fi
+
+          echo "==================== 10. TLS 证书 ===================="
+          enddate=$(echo | timeout 20 openssl s_client -connect vopth.xyz:443 -servername vopth.xyz 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)
+          if [ -n "$enddate" ]; then
+            end_ts=$(date -d "$enddate" +%s 2>/dev/null || echo 0)
+            if [ "$end_ts" -gt 0 ]; then
+              days=$(( (end_ts - $(date +%s)) / 86400 ))
+              echo "  证书剩余 $days 天（$enddate）"
+              if [ "$days" -lt "$CERT_MIN_DAYS" ]; then
+                add_warn "HTTPS 证书只剩 $days 天就过期了"
+              fi
+            fi
+          else
+            echo "  读不到证书信息（跳过这一项）"
+          fi
+
+          echo "==================== 11. 状态页小组件 ===================="
+          wcode=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "https://statuspage.flashcat.cloud/status-page-widget/1.0.1/widget.js" || echo 000)
+          echo "  widget.js HTTP $wcode"
+          if [ "$wcode" != "200" ]; then
+            add_warn "状态页小组件脚本取不到（HTTP $wcode）—— 页脚的徽章和顶部横幅会失效"
+          fi
+
+          echo ""
+          echo "==================== 汇总 ===================="
+          echo "影响访客的问题：${crit:- 无}"
+          echo "不影响阅读的问题：${warn:- 无}"
+
+          # ---------------- 推送 ----------------
+          # 两个 alert_key 各自独立，恢复时各自推 Ok。
+          # 每次运行都推（不管是 Critical 还是 Ok）—— 这样恢复能被自动关闭。
+          push() {
+            # $1=alert_key $2=status $3=title $4=body $5=check标签
+            if [ "$HAVE_JQ" != "1" ]; then
+              echo "  ⚠️ 环境里没有 jq，无法构造推送内容，跳过 $1（巡检环境问题，不是站点故障）"
+              return
+            fi
+            payload=$(jq -n \
+              --arg s "$2" --arg t "$3" --arg d "$4" --arg k "$1" --arg c "$5" \
+              '{ title_rule: $t, event_status: $s, alert_key: $k, description: $d,
+                 labels: { service: "vopth", resource: "vopth.xyz", check: $c, source: "github-actions" } }')
+            code=$(curl -sS -o "$TMP/fd.out" -w '%{http_code}' -m 20 \
+              -X POST -H 'Content-Type: application/json' -d "$payload" "$FLASHDUTY_WEBHOOK" || echo 000)
+            echo "  推送 $1 ($2) → HTTP $code"
+            head -c 200 "$TMP/fd.out" 2>/dev/null || true
+            echo ""
+          }
 
           if [ -z "${FLASHDUTY_WEBHOOK:-}" ]; then
             echo "⚠️ 没有配置 FLASHDUTY_WEBHOOK，跳过推送。"
-            if [ "$status" = "Critical" ]; then
-              echo "（但上面已经列出问题，这条在 Actions 里标红了）"
-            fi
+            [ -n "$crit" ] && echo "::error::发现影响访客的问题（见上方清单）" || true
+            [ -z "$crit" ] && [ -n "$warn" ] && echo "::warning::发现次要问题（见上方清单）" || true
+            rm -rf "$TMP"
             exit 0
           fi
 
-          # ---------- 推给 FlashDuty ----------
-          # 字段按「标准告警事件」的正式规格（控制台右侧文档说明）：
-          #   title_rule    必填，告警标题
-          #   event_status  必填，首字母大写的枚举：Critical / Warning / Info / Ok
-          #                 Ok 表示恢复，会把之前的告警自动关掉
-          #   alert_key     告警标识。恢复事件必须带，且要和首次上报的一致 ——
-          #                 所以固定成 vopth-uptime，同一个故障反复报只会有一条
-          #   description   告警描述
-          #   labels        标签 map，key/value 都是 string。
-          #                 ⚠️ 没有顶层 resource 字段，resource 是放在 labels 里的
-          # ⚠️ 推送地址要带 ?integration_key=...，整串直接放进 secret。
-          payload=$(jq -n \
-            --arg s "$status" \
-            --arg t "$title" \
-            --arg d "$body" \
-            '{
-               title_rule: $t,
-               event_status: $s,
-               alert_key: "vopth-uptime",
-               description: $d,
-               labels: {
-                 service: "vopth",
-                 resource: "vopth.xyz",
-                 check: "site+api+sched",
-                 source: "github-actions"
-               }
-             }')
+          # ---- 影响访客的那一路 ----
+          if [ -n "$crit" ]; then
+            echo "::error::vopth.xyz 有问题（见上方清单）"
+            push "vopth-site" "Critical" \
+              "vopth.xyz 有问题，访客可能看到异常" \
+              "$(printf '站点自检发现这些问题：%b\n\n（检查时间：%s UTC）' "$crit" "$(date -u +%FT%TZ)")" \
+              "site"
+          else
+            push "vopth-site" "Ok" \
+              "vopth.xyz 恢复正常" \
+              "站点、页面、静态资源、部署状态、内容索引都正常。（$(date -u +%FT%TZ)）" \
+              "site"
+          fi
 
-          http=$(curl -sS -o /tmp/fd.out -w '%{http_code}' -m 20 \
-            -X POST -H 'Content-Type: application/json' \
-            -d "$payload" "$FLASHDUTY_WEBHOOK" || echo "000")
-          echo "推送到 FlashDuty：HTTP $http"
-          head -c 400 /tmp/fd.out || true
+          # ---- 次要的那一路 ----
+          if [ -n "$warn" ]; then
+            push "vopth-warn" "Warning" \
+              "vopth.xyz 有次要问题（不影响访客阅读）" \
+              "$(printf '这些问题不影响文章阅读，但需要留意：%b\n\n（检查时间：%s UTC）' "$warn" "$(date -u +%FT%TZ)")" \
+              "secondary"
+          else
+            push "vopth-warn" "Ok" \
+              "vopth.xyz 次要指标正常" \
+              "定时任务心跳、响应速度、证书有效期都正常。（$(date -u +%FT%TZ)）" \
+              "secondary"
+          fi
+
+          # 让 Actions 运行列表一眼能看出有没有问题
+          if [ -n "$crit" ]; then
+            echo "::error::影响访客的问题：$(printf '%b' "$crit" | tr '\n' ' ')"
+          elif [ -n "$warn" ]; then
+            echo "::warning::次要问题：$(printf '%b' "$warn" | tr '\n' ' ')"
+          else
+            echo "✅ 12 项检查全部通过"
+          fi
+          rm -rf "$TMP"
