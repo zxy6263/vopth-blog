@@ -33,7 +33,18 @@ archive_dir: archives
 category_dir: categories
 code_dir: downloads/code
 i18n_dir: :lang
+# 命中的文件【不渲染】，原样复制到 public/ 对应位置。
+#
+# ⚠️ 为什么需要 baidu_verify_*.html：
+#    Hexo 默认会把 source/ 下的 .html 当【页面】套上主题模板渲染 ——
+#    实测一个 32 字节的验证文件被渲染成了 24445 字节的完整网页
+#    （塞进正文、生成 og:url / canonical，还可能进 sitemap 和站内搜索）。
+#    百度站长要求根目录下一个纯文本文件、内容就是那串 code，
+#    所以必须跳过渲染，原样复制。
+#
+# ⚠️ 验证通过后【不要删】这个文件和这条规则 —— 百度会定期复查。
 skip_render:
+  - 'baidu_verify_*.html'
 
 # ------------------------------------------------------------------ 写作
 new_post_name: :title.md # 新文章文件名
