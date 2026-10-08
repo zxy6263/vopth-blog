@@ -25,3 +25,12 @@
 
 # 删除文章后加的跳转（旧链接不要变死链）
 /2026/10/03/zhen-dao-wo-fa-wen-zhang-zhen-jiu-bu-zhi-dao-shuo-shen-me/ /archives/               301
+
+# 百度站长验证文件
+# ⚠️ 为什么需要这条：Cloudflare 的 assets.html_handling = "auto-trailing-slash"
+#    会把 /xxx.html 重定向（307）到去掉扩展名的 /xxx。
+#    跟过去内容是对的（就是那 32 字节的验证码），但让验证方跟着跳一次不保险。
+#    200 = 改写：地址栏不变，直接把目标路径的内容返回 ——
+#    这样 .html 这个地址本身就返回 200，不用跳转。
+# ⚠️ 验证通过后不要删这条，也不要删 source/ 下的源文件 —— 百度会定期复查。
+/baidu_verify_codeva-bq9Bcd3kA5.html    /baidu_verify_codeva-bq9Bcd3kA5    200
