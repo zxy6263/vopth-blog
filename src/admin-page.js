@@ -209,7 +209,13 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     </div>
 
     <div class="card">
-      <h3>独立访客（按 IP 聚合）</h3>
+      <h3>独立访客（按「身份键」聚合）</h3>
+      <div class="hint" style="margin:-4px 0 10px">
+        IPv4 用完整地址；<b>IPv6 只取 /64 前缀</b>（前 4 组）——
+        运营商给每个用户一整个 /64 段，设备会从中随机挑地址并定期更换，
+        按完整地址数会把同一个人算成很多个。仍然是估算：换宽带/换基站会换前缀，
+        公司学校的出口可能多人共用一个 /64。
+      </div>
       <div class="vwrap" id="vUniques"></div>
     </div>
 
@@ -436,11 +442,12 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
           '</div>';
 
         $('vUniques').innerHTML = vTable([
-          { t: 'IP', k: 'ip', mono: true },
+          { t: '身份键', k: 'ip_key', mono: true },
           { t: '访问次数', k: 'hits' },
           { t: '看过几页', k: 'pages' },
           { t: '地点', v: vPlace },
           { t: '运营商', v: function (r) { return r.org || ''; } },
+          { t: '完整地址（示例）', k: 'ip', mono: true },
           { t: '首次', k: 'firstText' },
           { t: '最后', k: 'lastText' }
         ], d.uniques);

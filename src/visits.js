@@ -38,6 +38,54 @@ export const KEEP_DAYS = 90;
 const BOT_RE = /bot|crawl|spider|slurp|preview|fetcher|monitor|scan|curl|wget|python|headless|lighthouse|pingdom|uptime|statuscake|nagios|zabbix|semrush|ahrefs|mj12|dotbot/i;
 
 /**
+ * 把 IPv6 展开成 8 组。
+ * 必须展开再比较 —— IPv6 允许压缩写法（::），
+ * 直接按字符串切前几段会切错（比如 "2409:8a15::1" 和 "2409:8a15:0:0:0:0:0:1" 是同一个地址）。
+ */
+function expandV6(input) {
+  let s = String(input || '').split('%')[0].toLowerCase(); // 去掉 zone id（fe80::1%eth0）
+  // IPv4-mapped 形式（::ffff:1.2.3.4）把尾巴换成两组十六进制
+  const m = s.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (m) {
+    const oct = m[2].split('.').map(Number);
+    s = m[1] + (((oct[0] << 8) | oct[1]) >>> 0).toString(16) + ':' + (((oct[2] << 8) | oct[3]) >>> 0).toString(16);
+  }
+  const halves = s.split('::');
+  if (halves.length === 2) {
+    const head = halves[0] ? halves[0].split(':') : [];
+    const tail = halves[1] ? halves[1].split(':') : [];
+    const fill = 8 - head.length - tail.length;
+    const zeros = [];
+    for (let i = 0; i < Math.max(fill, 0); i++) zeros.push('0');
+    return head.concat(zeros, tail);
+  }
+  return s.split(':');
+}
+
+/**
+ * 「身份键」—— 用来数独立访客。
+ *
+ * IPv4：整个地址就是身份（一个家庭一条宽带一个 IP，相对稳定）。
+ * IPv6：只取 /64 前缀（前 4 组）。
+ *
+ * 为什么 IPv6 不能按完整地址数：
+ *   运营商给每个用户一整个 /64 段（1.8×10^19 个地址），设备从中随机挑一个用，
+ *   而且会定期更换（隐私扩展 RFC 4941）。所以同一个人今天、明天、下周
+ *   会是三个完全不同的地址 —— 按完整地址统计会把一个人拆成好几个。
+ *   前 4 组（/64）通常稳定，用它当身份接近真实。
+ *
+ * ⚠️ 仍然只是估算：宽带重拨/换基站会换前缀；公司或学校的出口可能多人共用一个 /64。
+ */
+export function ipKey(ip) {
+  if (!ip) return '';
+  const s = String(ip);
+  if (s.indexOf(':') === -1) return s; // IPv4
+  const groups = expandV6(s);
+  if (groups.length < 4) return s; // 解析不出来就退回原值，别把数据搞丢
+  return groups.slice(0, 4).join(':') + '::/64';
+}
+
+/**
  * 模块级标记：同一个 isolate 里只建一次表。
  * 部署新版本时 isolate 会重启，就再建一次（IF NOT EXISTS，无害）。
  */
@@ -56,6 +104,7 @@ async function ensureSchema(db) {
            at       INTEGER NOT NULL,
            path     TEXT    NOT NULL,
            ip       TEXT,
+           ip_key   TEXT,
            country  TEXT,
            region   TEXT,
            city     TEXT,
@@ -69,7 +118,32 @@ async function ensureSchema(db) {
       .run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_visits_at ON visits(at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_visits_ip ON visits(ip)').run();
+
+    // 老版本建的库没有 ip_key 列 —— 补上。
+    // 列已存在时 SQLite 会抛错，忽略即可（这样写是幂等的）。
+    try {
+      await db.prepare('ALTER TABLE visits ADD COLUMN ip_key TEXT').run();
+    } catch (e) {
+      /* 列已存在，正常 */
+    }
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_visits_ipkey ON visits(ip_key)').run();
+
     schemaReady = true;
+
+    // 回填历史行（老数据的 ip_key 是空的）。
+    // 限量 500 条，避免某次请求里做太久的回填；剩下的下次再补。
+    try {
+      const rows = await db
+        .prepare("SELECT id, ip FROM visits WHERE ip_key IS NULL OR ip_key = '' LIMIT 500")
+        .all();
+      const list = (rows && rows.results) || [];
+      for (const r of list) {
+        await db.prepare('UPDATE visits SET ip_key = ? WHERE id = ?').bind(ipKey(r.ip), r.id).run();
+      }
+      if (list.length) console.log('[visits] 回填了 ' + list.length + ' 条记录的 ip_key');
+    } catch (e) {
+      console.log('[visits] 回填 ip_key 失败：' + (e && e.message));
+    }
   } catch (e) {
     // 建表失败不能影响访客请求 —— 下次再试
     console.log('[visits] 建表失败：' + (e && e.message));
@@ -115,13 +189,14 @@ export async function recordVisit(env, request, path) {
   try {
     await db
       .prepare(
-        `INSERT INTO visits (at, path, ip, country, region, city, asn, org, ua, referer, colo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO visits (at, path, ip, ip_key, country, region, city, asn, org, ua, referer, colo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         Math.floor(Date.now() / 1000),
         path,
         v.ip,
+        ipKey(v.ip),
         v.country,
         v.region,
         v.city,
@@ -200,7 +275,8 @@ export async function queryVisits(env, opts = {}) {
         .all(),
       db
         .prepare(
-          `SELECT ip,
+          `SELECT COALESCE(ip_key, ip) AS ip_key,
+                  MAX(ip)         AS ip,
                   COUNT(*)        AS hits,
                   MIN(at)         AS first_at,
                   MAX(at)         AS last_at,
@@ -210,8 +286,10 @@ export async function queryVisits(env, opts = {}) {
                   MAX(org)        AS org,
                   COUNT(DISTINCT path) AS pages,
                   MAX(ua)         AS ua
-             FROM visits WHERE at >= ? AND ip != ''
-             GROUP BY ip ORDER BY last_at DESC LIMIT ?`
+             FROM visits
+            WHERE at >= ? AND COALESCE(ip_key, ip) != ''
+            GROUP BY COALESCE(ip_key, ip)
+            ORDER BY last_at DESC LIMIT ?`
         )
         .bind(since, limit)
         .all(),
