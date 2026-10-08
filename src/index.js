@@ -41,6 +41,7 @@ import {
   runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure, scheduleStatus
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
+import { recordVisit, queryVisits, cleanupVisits } from './visits.js';
 
 // 每 3 小时那条 cron 用来发状态报告；其余（每 5 分钟那条）用来跑定时文章。
 const REPORT_CRON = '0 */3 * * *';
@@ -287,6 +288,23 @@ export default {
         }
       }
 
+      // 访客记录（只读，用 GET）
+      //   GET /admin/api/visits?days=7&limit=100
+      // 数据来自 D1（见 src/visits.js）。
+      // 没绑 D1 时返回明确的 error 字段，而不是空数组 ——
+      // "查不到" 和 "本来就没人来" 必须能分开（今夜被静默失败坑过两次）。
+      if (action === 'visits') {
+        if (request.method !== 'GET') return json({ error: 'method not allowed' }, 405);
+        try {
+          return json(await queryVisits(env, {
+            days: url.searchParams.get('days'),
+            limit: url.searchParams.get('limit')
+          }));
+        } catch (e) {
+          return json({ ok: false, error: '查访客记录出错：' + String(e && e.message) }, 500);
+        }
+      }
+
       // 排期：GET 列出，POST 新建。
       //   POST /admin/api/schedule         body: 文章数据 + publishAt(epoch秒) [+ deleteAt]
       //   POST /admin/api/schedule-delete  body: { slug, deleteAt }
@@ -472,6 +490,15 @@ export default {
                 console.log('[sched] 兜底检查异常：' + (e && e.message));
               })
             );
+            // 记一条访客（IP / 地区 / 运营商 / UA / 来源）进 D1，见 src/visits.js。
+            // 为什么挂这里：page-views.js 在【每次页面加载】都会请求 /api/views，
+            // 而 /api/views 本来就在 run_worker_first 列表里 ——
+            // 不用新增前端请求、不用改静态资源策略、不影响静态资源的免费额度。
+            ctx.waitUntil(
+              recordVisit(env, request, path).catch((e) => {
+                console.log('[visits] 记录失败：' + (e && e.message));
+              })
+            );
           }
           return json({ path: path, views: r.views, total: r.total });
         }
@@ -487,6 +514,13 @@ export default {
             ctx.waitUntil(
               maybeRunSchedules(env).catch((e) => {
                 console.log('[sched] 兜底检查异常：' + (e && e.message));
+              })
+            );
+            // 访客记录：非文章页（首页 / 关于 / 归档 / 列表页）只会走 GET，
+            // 所以 GET 这条路径也必须记 —— 否则只能看到"看了文章的人"。
+            ctx.waitUntil(
+              recordVisit(env, request, path).catch((e) => {
+                console.log('[visits] 记录失败：' + (e && e.message));
               })
             );
           }
@@ -516,6 +550,15 @@ export default {
     const run = (async () => {
       if (cron === REPORT_CRON) {
         await sendStatusReport(env);
+        // 顺手清理过期的访客记录。D1 不像 KV 有 expirationTtl，不会自动过期。
+        // 放这一支（每 3 小时）而不是每 5 分钟那一支 —— DELETE 没必要跑那么勤。
+        try {
+          const c = await cleanupVisits(env);
+          if (c && c.deleted) console.log('[visits] 清理了 ' + c.deleted + ' 条过期记录');
+        } catch (e) {
+          // 清理失败绝不影响状态报告
+          console.log('[visits] 清理失败：' + (e && e.message));
+        }
         return;
       }
       // 定时文章：到点的发布/删除

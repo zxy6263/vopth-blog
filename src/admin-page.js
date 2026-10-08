@@ -167,6 +167,61 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   <div class="tabs">
     <button id="tabBtnWrite" class="on">写文章</button>
     <button id="tabBtnManage">管理文章</button>
+    <button id="tabBtnVisits">访客</button>
+  </div>
+
+  <!-- ================= 访客（数据来自 D1，见 src/visits.js） ================= -->
+  <!-- 样式写在面板内部：这样完全不碰已有的 CSS，改坏了也只影响这一块 -->
+  <div id="tabVisits" style="display:none">
+    <style>
+      #tabVisits .vtable { width:100%; border-collapse:collapse; font-size:13px }
+      #tabVisits .vtable th, #tabVisits .vtable td { text-align:left; padding:6px 8px; border-bottom:1px solid #edeff2 }
+      #tabVisits .vtable th { color:#8a8f99; font-weight:500; white-space:nowrap }
+      #tabVisits .vtable td.mono { font-family:ui-monospace,Consolas,monospace; font-size:12.5px }
+      #tabVisits .vtable tr:last-child td { border-bottom:0 }
+      #tabVisits .vwrap { max-height:420px; overflow:auto }
+      #tabVisits .vempty { color:#9aa0a6; padding:10px 0 }
+      #tabVisits h3 { margin:0 0 10px; font-size:14px; font-weight:600 }
+      #tabVisits .vsum { color:#5b6068; font-size:13px; line-height:1.7 }
+    </style>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="vDays">时间范围</label>
+          <select id="vDays">
+            <option value="1">最近 24 小时</option>
+            <option value="7" selected>最近 7 天</option>
+            <option value="30">最近 30 天</option>
+            <option value="90">最近 90 天</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="vRefresh" type="button">刷新</button>
+        </div>
+      </div>
+      <div id="vInfo" class="hint" style="margin-top:12px">正在读取…</div>
+      <div class="hint" style="margin-top:6px">
+        只记录 <b>不是爬虫</b> 的访问（UA 含 bot / crawl / spider / curl / python 等的会被跳过）。
+        超过 90 天的记录由定时任务自动清理。
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>独立访客（按 IP 聚合）</h3>
+      <div class="vwrap" id="vUniques"></div>
+    </div>
+
+    <div class="card">
+      <h3>最近访问</h3>
+      <div class="vwrap" id="vRecent"></div>
+    </div>
+
+    <div class="card">
+      <h3>热门页面</h3>
+      <div class="vwrap" id="vPages"></div>
+    </div>
   </div>
 
   <!-- ================= 写文章 ================= -->
@@ -309,15 +364,108 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
 
   // ---------------------------------------------------------- 标签页
   function switchTab(which) {
-    var write = which === 'write';
-    $('tabWrite').style.display = write ? '' : 'none';
-    $('tabManage').style.display = write ? 'none' : '';
-    $('tabBtnWrite').className = write ? 'on' : '';
-    $('tabBtnManage').className = write ? '' : 'on';
-    if (!write) { loadPosts(); loadSched(); }
+    var w = which === 'write', m = which === 'manage', v = which === 'visits';
+    $('tabWrite').style.display = w ? '' : 'none';
+    $('tabManage').style.display = m ? '' : 'none';
+    $('tabVisits').style.display = v ? '' : 'none';
+    $('tabBtnWrite').className = w ? 'on' : '';
+    $('tabBtnManage').className = m ? 'on' : '';
+    $('tabBtnVisits').className = v ? 'on' : '';
+    if (m) { loadPosts(); loadSched(); }
+    if (v) { loadVisits(); }
   }
   $('tabBtnWrite').addEventListener('click', function () { switchTab('write'); });
   $('tabBtnManage').addEventListener('click', function () { switchTab('manage'); });
+  $('tabBtnVisits').addEventListener('click', function () { switchTab('visits'); });
+
+  // ---------------------------------------------------------- 访客记录
+  // 数据来自 GET /admin/api/visits（要过 Access 鉴权），后端在 src/visits.js
+  function vEsc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  // cols: [{ t: 表头, k: 字段名 }] 或 [{ t: 表头, v: function(row){...} }]
+  function vTable(cols, rows) {
+    if (!rows || !rows.length) return '<div class="vempty">这个时间范围内没有记录</div>';
+    var h = '<table class="vtable"><thead><tr>';
+    cols.forEach(function (c) { h += '<th>' + vEsc(c.t) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr>';
+      cols.forEach(function (c) {
+        var val = c.v ? c.v(r) : r[c.k];
+        h += '<td' + (c.mono ? ' class="mono"' : '') + '>' + vEsc(val) + '</td>';
+      });
+      h += '</tr>';
+    });
+    return h + '</tbody></table>';
+  }
+  function vPlace(r) {
+    return [r.country, r.region, r.city].filter(function (x) { return x; }).join(' ');
+  }
+  function loadVisits() {
+    var days = $('vDays') ? $('vDays').value : '7';
+    $('vInfo').textContent = '正在读取…';
+    $('vUniques').innerHTML = '';
+    $('vRecent').innerHTML = '';
+    $('vPages').innerHTML = '';
+    fetch('/admin/api/visits?days=' + encodeURIComponent(days) + '&limit=200', {
+      headers: { accept: 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store'
+    })
+      .then(function (r) {
+        // 403 通常是 Access 的 JWT 过期了 —— 说清楚，别让人以为是代码坏了
+        if (r.status === 403) throw new Error('没有权限（Access 登录可能过期了），刷新页面重新登录试试');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        if (!d || d.ok !== true) {
+          $('vInfo').textContent = '读取失败：' + ((d && d.error) || '返回内容不对');
+          return;
+        }
+        $('vInfo').innerHTML =
+          '<div class="vsum">' +
+          '时间范围：最近 ' + vEsc(d.days) + ' 天　·　' +
+          '库里共 <b>' + vEsc(d.totalRows) + '</b> 条记录　·　' +
+          '这个范围内 <b>' + vEsc(d.uniques.length) + '</b> 个独立 IP　·　' +
+          vEsc(d.pages.length) + ' 个页面<br>' +
+          '生成时间（北京时间）：' + vEsc(d.generatedAt) +
+          '</div>';
+
+        $('vUniques').innerHTML = vTable([
+          { t: 'IP', k: 'ip', mono: true },
+          { t: '访问次数', k: 'hits' },
+          { t: '看过几页', k: 'pages' },
+          { t: '地点', v: vPlace },
+          { t: '运营商', v: function (r) { return r.org || ''; } },
+          { t: '首次', k: 'firstText' },
+          { t: '最后', k: 'lastText' }
+        ], d.uniques);
+
+        $('vRecent').innerHTML = vTable([
+          { t: '时间', k: 'atText' },
+          { t: 'IP', k: 'ip', mono: true },
+          { t: '页面', k: 'path', mono: true },
+          { t: '地点', v: vPlace },
+          { t: '运营商', v: function (r) { return r.org || ''; } },
+          { t: '来源', v: function (r) { return r.referer ? r.referer.slice(0, 60) : '直接访问'; } }
+        ], d.recent);
+
+        $('vPages').innerHTML = vTable([
+          { t: '页面', k: 'path', mono: true },
+          { t: '访问次数', k: 'hits' },
+          { t: '独立访客', k: 'visitors' }
+        ], d.pages);
+      })
+      .catch(function (e) {
+        $('vInfo').textContent = '读取失败：' + (e && e.message ? e.message : e);
+      });
+  }
+  if ($('vRefresh')) $('vRefresh').addEventListener('click', loadVisits);
+  if ($('vDays')) $('vDays').addEventListener('change', loadVisits);
 
   // ---------------------------------------------------------- 草稿（只存文字，不存封面）
   function collect() {
