@@ -762,3 +762,198 @@ export async function maybeRunSchedules(env) {
 export async function runSchedulesNow(env) {
   return await runDueSchedules(env, 'manual');
 }
+
+/* ===========================================================================
+ *  背景音乐：歌单抓取
+ *
+ *  播放器用网易官方外链播放器的【单曲模式】（type=2），每次随机挑一首，
+ *  所以需要一个"歌单里所有歌的 ID"列表 —— 存在 source/music/playlist.json。
+ *
+ *  为什么这一步在后台里做（而不是构建时自动跑）
+ *  -------------------------------------------
+ *    构建机在 Cloudflare（海外），访问 music.163.com（国内）容易超时。
+ *    让构建依赖外部网络 = 网易一抽风整个部署就挂。
+ *    所以：只有你点「保存并抓取」的那一刻才去请求网易，结果提交进仓库，
+ *    之后的构建就是纯离线的。
+ *
+ *  ⚠️⚠️ 最关键的坑：别只看 `tracks`
+ *    网易 /api/v6/playlist/detail 返回里有两个数组：
+ *         tracks    —— 未登录请求只有 10 首（被截断）
+ *         trackIds  —— 【全量】336 个 ID（给分页用的）
+ *     我第一版只看 tracks，得出"接口只给 10 首、随机池太小"的结论，
+ *     差点让站主放弃随机播放。实际 trackIds 里一首不少。
+ *     所以下面【优先 trackIds】，tracks 只当兜底，并且会在返回里说明用了哪个。
+ * ========================================================================= */
+
+const MUSIC_FILE = 'source/music/playlist.json';
+const NETEASE_DETAIL = 'https://music.163.com/api/v6/playlist/detail';
+
+/** 从纯 ID 或各种链接里抠出歌单 ID */
+export function parsePlaylistId(input) {
+  const s = String(input == null ? '' : input).trim();
+  if (!s) return '';
+  const byId = s.match(/[?&#]id=(\d+)/);
+  if (byId) return byId[1];
+  const pure = s.match(/^(\d{5,})$/);
+  if (pure) return pure[1];
+  return '';
+}
+
+/**
+ * 读当前歌单数据（后台显示用）。
+ * 只回元信息和前几首，不回全部 336 个 ID —— 没必要往浏览器塞。
+ */
+export async function getMusicInfo(env) {
+  if (!env.GITHUB_TOKEN) return noToken();
+  let file;
+  try {
+    file = await getFile(env, MUSIC_FILE);
+  } catch (e) {
+    return { ok: false, error: '读歌单文件出错：' + String(e && e.message) };
+  }
+  if (!file) {
+    return {
+      ok: true,
+      exists: false,
+      hint: '还没有歌单数据。填上歌单 ID 点「保存并抓取」就会生成。'
+    };
+  }
+
+  let data = null;
+  try {
+    data = JSON.parse(base64ToUtf8(file.content));
+  } catch (e) {
+    return { ok: false, error: MUSIC_FILE + ' 不是合法 JSON：' + String(e && e.message) };
+  }
+
+  const ids = Array.isArray(data.trackIds) ? data.trackIds : [];
+  return {
+    ok: true,
+    exists: true,
+    playlistId: String(data.playlistId || ''),
+    name: String(data.name || ''),
+    trackCount: Number(data.trackCount) || 0,
+    idCount: ids.length,
+    generatedAt: String(data.generatedAt || ''),
+    sample: ids.slice(0, 5),
+    sha: file.sha
+  };
+}
+
+/** 去网易拉歌单详情 */
+async function fetchNeteasePlaylist(playlistId) {
+  const url = `${NETEASE_DETAIL}?id=${encodeURIComponent(playlistId)}&n=1000`;
+  const res = await fetch(url, {
+    headers: {
+      // 网易对没有 UA / Referer 的请求会拒
+      'user-agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+      referer: 'https://music.163.com/',
+      accept: 'application/json, text/plain, */*'
+    }
+  });
+  if (!res.ok) throw new Error('网易接口 HTTP ' + res.status);
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error('网易返回的不是 JSON：' + text.slice(0, 150));
+  }
+  if (!json || !json.playlist) {
+    throw new Error('网易返回里没有 playlist（歌单被删了？设成私密了？）');
+  }
+  return json.playlist;
+}
+
+/**
+ * 抓取歌单并提交进仓库。
+ *
+ * 返回里会带上 source（'trackIds' 还是 'tracks'），
+ * 让你一眼看出拿到的是全量还是被截断的 10 首。
+ */
+export async function fetchAndSaveMusic(env, rawInput) {
+  if (!env.GITHUB_TOKEN) return noToken();
+
+  const playlistId = parsePlaylistId(rawInput);
+  if (!playlistId) {
+    return {
+      ok: false,
+      error: '认不出歌单 ID。可以填纯数字，或者直接粘歌单链接（...playlist?id=123456）'
+    };
+  }
+
+  let pl;
+  try {
+    pl = await fetchNeteasePlaylist(playlistId);
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        '拉取歌单失败：' + String(e && e.message) +
+        '（Worker 在 Cloudflare 上，访问 music.163.com 偶尔会超时，可以重试一次）'
+    };
+  }
+
+  // ⚠️ 关键：优先 trackIds（全量），tracks 只有 10 首
+  let ids = [];
+  let source = '';
+  if (Array.isArray(pl.trackIds) && pl.trackIds.length) {
+    ids = pl.trackIds.map((t) => t && t.id).filter(Boolean);
+    source = 'trackIds';
+  } else if (Array.isArray(pl.tracks) && pl.tracks.length) {
+    ids = pl.tracks.map((t) => t && t.id).filter(Boolean);
+    source = 'tracks';
+  }
+
+  if (!ids.length) {
+    return { ok: false, error: '歌单里一个歌曲 ID 都没拿到' };
+  }
+
+  // 去重
+  const uniq = Array.from(new Set(ids.map(String))).map(Number);
+
+  const payload = {
+    _comment: '由后台「背景音乐」页生成，不要手改',
+    generatedAt: new Date().toISOString(),
+    playlistId: String(pl.id || playlistId),
+    name: pl.name || '',
+    trackCount: pl.trackCount || uniq.length,
+    trackIds: uniq
+  };
+  const jsonText = JSON.stringify(payload, null, 2) + '\n';
+
+  // 已有文件要带 sha 才能覆盖
+  let sha = null;
+  try {
+    const existing = await getFile(env, MUSIC_FILE);
+    if (existing) sha = existing.sha;
+  } catch (e) { /* 读不到就当新建 */ }
+
+  const note =
+    source === 'tracks'
+      ? '⚠️ 只拿到 ' + uniq.length + ' 首（网易这次没给 trackIds，随机池偏小）'
+      : '';
+
+  const put = await putFile(
+    env,
+    MUSIC_FILE,
+    utf8ToBase64(jsonText),
+    `feat(music): 更新背景音乐歌单（${pl.name || playlistId}，${uniq.length} 首）`,
+    sha
+  );
+  if (!put.ok) return { ok: false, error: '提交失败：' + put.error };
+
+  return {
+    ok: true,
+    playlistId: payload.playlistId,
+    name: payload.name,
+    trackCount: payload.trackCount,
+    idCount: uniq.length,
+    source,
+    note,
+    commit: put.commit,
+    sample: uniq.slice(0, 5)
+  };
+}

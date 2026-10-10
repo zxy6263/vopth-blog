@@ -9,33 +9,40 @@
 (function () {
   'use strict';
 
-  // 只在首页插入（/page/2/ 这类分页不插入，避免重复占位）
-  var path = window.location.pathname.replace(/index\.html$/, '');
-  if (path !== '/' && path !== '') return;
+  function insert() {
+    // 只在首页插入（/page/2/ 这类分页不插入，避免重复占位）
+    var path = window.location.pathname.replace(/index\.html$/, '');
+    if (path !== '/' && path !== '') return;
 
-  var posts = document.getElementById('recent-posts');
-  if (!posts) return;                                 // 归档 / 标签 / 分类页没有这个容器
-  if (document.querySelector('.ph-card')) return;      // 防重复插入
+    var posts = document.getElementById('recent-posts');
+    if (!posts) return;                                 // 归档 / 标签 / 分类页没有这个容器
+    if (document.querySelector('.ph-card')) return;      // 防重复插入
 
-  var html = [
-    '<div class="ph-card">',
-    '  <div class="ph-avatar">',
-    '    <img src="/img/avatar.jpg" alt="vopth" width="88" height="88">',
-    '  </div>',
-    '  <div class="ph-body">',
-    '    <div class="ph-name">vopth<span class="ph-badge">deepseek忠实合作伙伴</span></div>',
-    '    <p class="ph-bio">deepseek忠实合作伙伴。这里记录我的技术笔记、踩坑记录和一些日常。</p>',
-    '    <div class="ph-links">',
-    '      <a href="https://github.com/zxy6263" target="_blank" rel="noopener"><i class="fab fa-github"></i>GitHub</a>',
-    '      <a href="mailto:3585648116@qq.com"><i class="fas fa-envelope"></i>邮箱</a>',
-    '      <a href="/about/"><i class="fas fa-user"></i>关于我</a>',
-    '      <a href="/subscribe/"><i class="fas fa-rss"></i>RSS 订阅</a>',
-    '    </div>',
-    '  </div>',
-    '</div>'
-  ].join('\n');
+    var html = [
+      '<div class="ph-card">',
+      '  <div class="ph-avatar">',
+      '    <img src="/img/avatar.jpg" alt="vopth" width="88" height="88">',
+      '  </div>',
+      '  <div class="ph-body">',
+      '    <div class="ph-name">vopth<span class="ph-badge">deepseek忠实合作伙伴</span></div>',
+      '    <p class="ph-bio">deepseek忠实合作伙伴。这里记录我的技术笔记、踩坑记录和一些日常。</p>',
+      '    <div class="ph-links">',
+      '      <a href="https://github.com/zxy6263" target="_blank" rel="noopener"><i class="fab fa-github"></i>GitHub</a>',
+      '      <a href="mailto:3585648116@qq.com"><i class="fas fa-envelope"></i>邮箱</a>',
+      '      <a href="/about/"><i class="fas fa-user"></i>关于我</a>',
+      '      <a href="/subscribe/"><i class="fas fa-rss"></i>RSS 订阅</a>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join('\n');
 
-  var holder = document.createElement('div');
-  holder.innerHTML = html;
-  posts.insertBefore(holder.firstChild, posts.firstChild);
+    var holder = document.createElement('div');
+    holder.innerHTML = html;
+    posts.insertBefore(holder.firstChild, posts.firstChild);
+  }
+
+  insert();
+  // PJAX 换页后 #body-wrap 被整个替换、DOM 是新的，必须重跑一次。
+  // 没有这一行的话：从文章页 PJAX 回首页时，简介卡片不会出现。
+  document.addEventListener('pjax:complete', insert, false);
 })();

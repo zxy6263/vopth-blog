@@ -787,3 +787,229 @@
   font-size: 0.85em;
   color: var(--card-meta);
 }
+
+/* ---------------------------------------------------------------------------
+ *  16. 悬浮音乐播放器
+ *  由 source/js/music-player.js 注入，整块 DOM 挂在 <body> 直属下
+ *
+ *  ⚠️ 为什么必须挂在 <body> 直属下、不能放进 #body-wrap：
+ *     主题的 PJAX 替换 #body-wrap（整个页面主体）。
+ *     播放器只要不在被替换的容器里，翻页时就不会被销毁 → iframe 不重载
+ *     → 音乐跨页不断。这是它跟 PJAX 共存的关键，改定位时别动这一层。
+ *
+ *  位置选左下角：右下角是主题的 #rightside 功能按钮区，放那儿会打架。
+ * ------------------------------------------------------------------------- */
+.vopth-music {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 950;                 /* 低于主题弹窗，高于正文 */
+  font-family: inherit;
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------- 悬浮按钮 */
+.vopth-music-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #4a6cf7, #7b5cf7);
+  box-shadow: 0 6px 18px rgba(74, 108, 247, 0.42);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.vopth-music-toggle:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 24px rgba(74, 108, 247, 0.52);
+}
+
+.vopth-music-toggle:focus-visible {
+  outline: 2px solid #4a6cf7;
+  outline-offset: 3px;
+}
+
+/* 打开状态下悬浮按钮高亮一下（原来是让唱片转，但图标已经换成音符了） */
+.vopth-music-toggle.is-active {
+  box-shadow: 0 6px 22px rgba(74, 108, 247, 0.66), 0 0 0 3px rgba(74, 108, 247, 0.22);
+}
+
+/* 首次来访的提示气泡：光看一个圆按钮不知道是干什么的，所以飘一句说明。
+   点过之后写 localStorage，以后不再出现。 */
+.vopth-music-hint {
+  position: absolute;
+  left: 60px;
+  bottom: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #4a6cf7, #7b5cf7);
+  box-shadow: 0 4px 14px rgba(74, 108, 247, 0.42);
+  animation: vopth-music-hint-in 0.45s ease both 0.8s;
+}
+
+/* 指向悬浮按钮的小三角 */
+.vopth-music-hint::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  transform: rotate(45deg);
+  background: #4a6cf7;
+}
+
+@keyframes vopth-music-hint-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------- 面板 */
+.vopth-music-panel {
+  position: absolute;
+  left: 0;
+  bottom: 60px;                 /* 悬浮按钮上方 */
+  width: 330px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.26);
+  /* 收起状态：透明 + 不可见 + 稍微下沉，展开时回到原位 */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.96);
+  transform-origin: left bottom;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+}
+
+.vopth-music[data-state='open'] .vopth-music-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.vopth-music-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.16);
+}
+
+.vopth-music-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--font-color);
+}
+
+/* 标题栏右侧那组小按钮（换一首 / 收起） */
+.vopth-music-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.vopth-music-iconbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--card-meta);
+  background: transparent;
+  transition: color 0.2s, background 0.2s;
+}
+
+.vopth-music-iconbtn:hover {
+  color: var(--font-color);
+  background: var(--text-bg-hover);
+}
+
+.vopth-music-iconbtn:focus-visible {
+  outline: 2px solid #4a6cf7;
+  outline-offset: 1px;
+}
+
+.vopth-music-body {
+  position: relative;
+}
+
+/* 网易官方外链播放器（单曲模式 type=2）
+   高度跟 music-player.js 里的 CONFIG.frameHeight 对着改，两边要一致 ——
+   差一点就会露出下面多余的一条白边，或者把控制按钮裁掉。 */
+.vopth-music-frame {
+  display: block;
+  width: 330px;
+  height: 130px;
+  border: 0;
+}
+
+/* 还没点开时的提示（iframe 一创建就隐藏） */
+.vopth-music-tip {
+  padding: 20px 18px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--card-meta);
+}
+
+/* ---------------------------------------------------------------- 小屏 */
+@media screen and (max-width: 768px) {
+  .vopth-music {
+    left: 12px;
+    bottom: 12px;
+  }
+
+  .vopth-music-toggle {
+    width: 42px;
+    height: 42px;
+  }
+
+  .vopth-music-panel {
+    bottom: 54px;
+    /* 别超出屏幕左右边 */
+    width: min(330px, calc(100vw - 24px));
+  }
+
+  .vopth-music-frame {
+    width: 100%;
+    height: 130px;
+  }
+
+  /* 小屏上气泡别顶出右边界 */
+  .vopth-music-hint {
+    left: 54px;
+    bottom: 11px;
+    font-size: 0.76rem;
+    padding: 5px 10px;
+  }
+}
+
+/* 系统开了「减少动态效果」就别做过渡动画 */
+@media (prefers-reduced-motion: reduce) {
+  .vopth-music-hint {
+    animation: none;
+  }
+
+  .vopth-music-panel,
+  .vopth-music-toggle {
+    transition: none;
+  }
+}

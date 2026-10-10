@@ -168,6 +168,7 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     <button id="tabBtnWrite" class="on">写文章</button>
     <button id="tabBtnManage">管理文章</button>
     <button id="tabBtnVisits">访客</button>
+    <button id="tabBtnMusic">背景音乐</button>
   </div>
 
   <!-- ================= 访客（数据来自 D1，见 src/visits.js） ================= -->
@@ -227,6 +228,62 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
     <div class="card">
       <h3>热门页面</h3>
       <div class="vwrap" id="vPages"></div>
+    </div>
+  </div>
+
+  <!-- ================= 背景音乐 ================= -->
+  <!-- 播放器本体在 source/js/music-player.js，读的是 source/music/playlist.json。
+       这一页只负责「换歌单 + 触发重新抓取」。样式写在面板内部，不碰已有 CSS。 -->
+  <div id="tabMusic" style="display:none">
+    <style>
+      #tabMusic .mstat { font-size:13px; line-height:2; color:#5b6068 }
+      #tabMusic .mstat b { color:#222 }
+      #tabMusic .mids { font-family:ui-monospace,Consolas,monospace; font-size:12.5px; color:#8a8f99; word-break:break-all }
+      #tabMusic .mok { color:#1a7f37 }
+      #tabMusic .merr { color:#c0392b }
+      #tabMusic .mwarn { color:#b26a00 }
+      #tabMusic code { background:#f2f3f5; padding:1px 5px; border-radius:4px; font-size:12.5px }
+    </style>
+
+    <div class="card">
+      <h3>当前歌单</h3>
+      <div id="mInfo" class="mstat">正在读取…</div>
+    </div>
+
+    <div class="card">
+      <h3>换歌单</h3>
+      <label for="mInput">歌单 ID 或链接</label>
+      <input type="text" id="mInput" placeholder="13567737910  或  https://music.163.com/playlist?id=13567737910" autocomplete="off">
+      <div class="hint" style="margin-top:6px">
+        在网易云网页版打开歌单，地址栏里 <code>id=</code> 后面那串数字。粘整条链接也行，会自动认出 ID。
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>&nbsp;</label>
+          <button id="mSave" type="button">保存并抓取</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="mRefresh" type="button" class="ghost">刷新</button>
+        </div>
+      </div>
+      <div id="mMsg" class="hint" style="margin-top:12px"></div>
+      <div class="hint" style="margin-top:10px">
+        ⚠️ 点「保存并抓取」会请求网易接口拿<b>全部</b>歌曲 ID，
+        然后提交 <code>source/music/playlist.json</code>。
+        提交后 Cloudflare 会自动重新部署，一两分钟后线上生效。
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>播放器怎么工作</h3>
+      <div class="hint" style="line-height:1.9">
+        左下角那个音符按钮展开的就是它，用的是<b>网易官方外链播放器的单曲模式</b>：<br>
+        · 每次打开从歌单里<b>随机</b>挑一首，所以每次进站听到的都不一样<br>
+        · 面板上的「换一首」是我们自己实现的（重新随机一个 ID、换掉 iframe）<br>
+        · 音频由网易提供、不经过 Cloudflare，版权/试听/下架都与本站无关<br>
+        · 拿不到歌单数据时会自动退回歌单模式，不会变哑巴
+      </div>
     </div>
   </div>
 
@@ -370,19 +427,24 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
 
   // ---------------------------------------------------------- 标签页
   function switchTab(which) {
-    var w = which === 'write', m = which === 'manage', v = which === 'visits';
+    var w = which === 'write', m = which === 'manage', v = which === 'visits',
+        mu = which === 'music';
     $('tabWrite').style.display = w ? '' : 'none';
     $('tabManage').style.display = m ? '' : 'none';
     $('tabVisits').style.display = v ? '' : 'none';
+    $('tabMusic').style.display = mu ? '' : 'none';
     $('tabBtnWrite').className = w ? 'on' : '';
     $('tabBtnManage').className = m ? 'on' : '';
     $('tabBtnVisits').className = v ? 'on' : '';
+    $('tabBtnMusic').className = mu ? 'on' : '';
     if (m) { loadPosts(); loadSched(); }
     if (v) { loadVisits(); }
+    if (mu) { loadMusic(); }
   }
   $('tabBtnWrite').addEventListener('click', function () { switchTab('write'); });
   $('tabBtnManage').addEventListener('click', function () { switchTab('manage'); });
   $('tabBtnVisits').addEventListener('click', function () { switchTab('visits'); });
+  $('tabBtnMusic').addEventListener('click', function () { switchTab('music'); });
 
   // ---------------------------------------------------------- 访客记录
   // 数据来自 GET /admin/api/visits（要过 Access 鉴权），后端在 src/visits.js
@@ -473,6 +535,107 @@ export const ADMIN_PAGE = String.raw`<!doctype html>
   }
   if ($('vRefresh')) $('vRefresh').addEventListener('click', loadVisits);
   if ($('vDays')) $('vDays').addEventListener('change', loadVisits);
+
+  // ---------------------------------------------------------- 背景音乐
+  // 后端：GET /admin/api/music 读当前歌单信息
+  //       POST /admin/api/music {playlistId} 抓取并提交 source/music/playlist.json
+  // 播放器本体在 source/js/music-player.js。
+  function mSay(kind, text) {
+    var el = $('mMsg');
+    if (!el) return;
+    el.className = kind === 'ok' ? 'mok' : (kind === 'err' ? 'merr' : 'hint');
+    el.textContent = text || '';
+  }
+
+  function mFmtTime(iso) {
+    if (!iso) return '未知';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString('zh-CN', { hour12: false });
+  }
+
+  function loadMusic() {
+    var info = $('mInfo');
+    if (!info) return;
+    info.textContent = '正在读取…';
+    fetch('/admin/api/music', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || d.ok === false) {
+          info.innerHTML = '<span class="merr">读取失败：' +
+            vEsc((d && d.error) || '未知错误') + '</span>';
+          return;
+        }
+        if (!d.exists) {
+          info.innerHTML = '<span class="mwarn">还没有歌单数据。</span><br>' +
+            vEsc(d.hint || '填上歌单 ID 抓取一次即可。');
+          return;
+        }
+        var ids = (d.sample || []).join(', ');
+        info.innerHTML =
+          '歌单名 &nbsp;<b>' + vEsc(d.name || '(无名)') + '</b><br>' +
+          '歌单 ID &nbsp;<b>' + vEsc(d.playlistId) + '</b><br>' +
+          '歌曲数 &nbsp;<b>' + vEsc(d.idCount) + '</b> 首' +
+          (d.trackCount && d.trackCount !== d.idCount
+            ? ' &nbsp;<span class="mwarn">（歌单标称 ' + vEsc(d.trackCount) + ' 首，对不上）</span>'
+            : '') + '<br>' +
+          '生成时间 &nbsp;' + vEsc(mFmtTime(d.generatedAt)) + '<br>' +
+          '前几首 ID &nbsp;<span class="mids">' + vEsc(ids) + '…</span>';
+        // 输入框预填当前歌单 ID，方便微调
+        if ($('mInput') && !$('mInput').value) $('mInput').value = d.playlistId || '';
+      })
+      .catch(function (e) {
+        info.innerHTML = '<span class="merr">读取失败：' +
+          vEsc(e && e.message ? e.message : e) + '</span>';
+      });
+  }
+
+  function saveMusic() {
+    var raw = ($('mInput') && $('mInput').value ? $('mInput').value : '').trim();
+    if (!raw) {
+      mSay('err', '请先填歌单 ID 或链接');
+      return;
+    }
+    var btn = $('mSave');
+    if (btn) btn.disabled = true;
+    mSay('', '正在请求网易接口并提交…（可能要几秒）');
+
+    fetch('/admin/api/music', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ playlistId: raw })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        var d = res.body || {};
+        if (!d.ok) {
+          mSay('err', '失败：' + (d.error || ('HTTP ' + res.status)));
+          return;
+        }
+        var t = '✅ 抓到了 ' + d.idCount + ' 首：《' + (d.name || '') + '》';
+        if (d.source === 'tracks') {
+          t += '\n⚠️ 网易这次没返回 trackIds，只拿到 ' + d.idCount +
+               ' 首（可能被截断），随机池偏小。';
+        }
+        if (d.commit) t += '\n已提交 commit ' + d.commit;
+        t += '\nCloudflare 会自动重新部署，一两分钟后线上生效。';
+        mSay('ok', t);
+        loadMusic();
+      })
+      .catch(function (e) {
+        mSay('err', '请求失败：' + (e && e.message ? e.message : e));
+      })
+      .then(function () { if (btn) btn.disabled = false; });
+  }
+
+  if ($('mRefresh')) $('mRefresh').addEventListener('click', loadMusic);
+  if ($('mSave')) $('mSave').addEventListener('click', saveMusic);
+  if ($('mInput')) {
+    $('mInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveMusic(); }
+    });
+  }
 
   // ---------------------------------------------------------- 草稿（只存文字，不存封面）
   function collect() {

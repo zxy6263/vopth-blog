@@ -162,4 +162,12 @@
   } else {
     run();
   }
+
+  // PJAX 换页后 #body-wrap 被整个替换、DOM 是新的，必须重跑一次。
+  // 没有这一行的话：从首页 PJAX 进文章页时，「阅读 N」和侧边栏「总访问量」
+  // 都不会出现（接口其实返回了，只是没人去渲染）。
+  //
+  // 重复上报的风险：run() 里的 firstVisitThisSession() 用 sessionStorage 去重，
+  // 所以重跑只会走 GET，不会把 PV 重复计上去。
+  document.addEventListener('pjax:complete', run, false);
 })();

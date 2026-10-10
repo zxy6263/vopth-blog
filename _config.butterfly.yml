@@ -373,8 +373,31 @@ lazyload:
   blur: false
 
 instantpage: true # 鼠标悬停链接时预取，点开几乎瞬间
+
+# PJAX：无刷新换页。
+# 2026-10-10 开启，唯一目的是让左下角的悬浮音乐播放器能跨页不断
+# （整页刷新会把 iframe 销毁，音乐就断在每一次点链接上）。
+#
+# ⚠️ 主题的 PJAX 替换这几个选择器：
+#      ['head > title', '#config-diff', '#body-wrap',
+#       '#rightside-config-hide', '#rightside-config-show', '.js-pjax']
+#    #body-wrap 是【整个页面主体】。所以任何「页面加载时插一次 DOM」的脚本
+#    都必须挂在 pjax:complete 上重跑，否则换页后那段 DOM 就没了。
+#
+#    已经适配的（都挂了 pjax:complete）：
+#         profile-hero.js       首页简介卡片
+#         banner-video.js       栏目页 banner 视频
+#         page-views.js         阅读量 / 总访问量
+#         reading-progress.js   顶部阅读进度条（还负责"离开文章页要撤掉"）
+#         post-edit.js          文章底部「在 GitHub 上编辑此页」
+#         admin-entry.js        右下角设置里的后台入口
+#    不需要适配的：
+#         search-shortcut.js    document 级 keydown，天然存活
+#         music-player.js       DOM 挂在 #body-wrap 之外，PJAX 碰不到它
+#
+#    以后新增自定义脚本，先想一遍属于哪一类。
 pjax:
-  enable: false # PJAX 与第三方脚本容易冲突，保持关闭更稳
+  enable: true
 
 # ------------------------------------------------------------------ SEO
 Open_Graph_meta:
@@ -422,6 +445,15 @@ inject:
     # 右下角「设置」里加一个进后台的入口（往 #rightside-config-hide 里插一个 <a>）。
     # 不想用就把这一行删掉，不影响后台本身。
     - '<script src="/js/admin-entry.js" defer></script>'
+    # 悬浮音乐播放器（左下角）。用网易云官方外链 iframe：
+    #   · 音频由网易自己提供，试听/下架/版权都由它处理，与本站无关
+    #   · iframe 内容直接从 music.163.com 加载，【不经过 Cloudflare】——
+    #     零 Worker 请求、零带宽、不涉及 ToS
+    #   · 歌单 ID 在 source/js/music-player.js 顶部的 CONFIG.playlistId
+    # ⚠️ 播放器的 DOM 挂在 <body> 直属下（#body-wrap 之外），PJAX 翻页时
+    #    不会被替换掉 → iframe 不重载 → 音乐跨页不断。
+    #    这是整件事的关键，别把它挪进 #body-wrap。
+    - '<script src="/js/music-player.js" defer></script>'
     # 状态页小组件：服务异常时在页面顶部显示一条横幅，正常时应该自动隐藏。
     # 状态页本体 https://statuspage.flashcat.cloud/vopth
     # ⚠️ 版本号（1.0.1）和 SRI 哈希是一对，FlashDuty 升级 widget 时两处都要换，

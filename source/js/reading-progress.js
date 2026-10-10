@@ -15,31 +15,64 @@
  *    · 节流用【时间戳】而不是 requestAnimationFrame —— 见下面 onScroll
  *      里的注释，rAF 在后台标签页和被节流的 iframe 里可能不触发
  *    · 高度按「可滚动距离」算，不是按文档总高 —— 否则滚到底也到不了 100%
+ *
+ *  ⚠️ PJAX：主题的 PJAX 替换 #body-wrap（整个页面主体）。这条进度条是插在
+ *     <body> 直属位置（#body-wrap 之外），所以翻页时它【不会被销毁】——
+ *     这是好事，但带来一个新问题：页面类型可能变了。
+ *        列表页 → 文章页：条得【出现】
+ *        文章页 → 列表页：条得【撤掉】，否则一条永远填不满的线留在那儿
+ *     原来的写法是「加载时判断一次」，PJAX 之后就不成立了。
+ *     所以下面改成 ensure()/remove()，并挂在 pjax:complete 上重新判断。
  * ========================================================================= */
 
 (function () {
   'use strict';
 
-  var article = document.getElementById('article-container');
-  if (!article) return;                       // 不是文章页，不显示
+  var barEl = null;
+  var fillEl = null;
 
-  var bar = document.createElement('div');
-  bar.className = 'reading-progress';
-  bar.setAttribute('aria-hidden', 'true');    // 纯装饰，读屏软件跳过
-  bar.innerHTML = '<i></i>';
-  var fill = bar.firstChild;
+  /* 当前页面是不是文章页？是就保证有进度条，不是就撤掉。 */
+  function ensure() {
+    var article = document.getElementById('article-container');
 
-  // 插到 body 最前面，避免被其他容器的 overflow/transform 影响定位
-  document.body.insertBefore(bar, document.body.firstChild);
+    if (!article) {
+      remove();
+      return false;
+    }
+
+    if (barEl) return true;              // 已经有了
+
+    barEl = document.createElement('div');
+    barEl.className = 'reading-progress';
+    barEl.setAttribute('aria-hidden', 'true');    // 纯装饰，读屏软件跳过
+    barEl.innerHTML = '<i></i>';
+    fillEl = barEl.firstChild;
+
+    // 插到 body 最前面：
+    //   ① 避免被其他容器的 overflow/transform 影响定位
+    //   ② 落在 #body-wrap 之外，PJAX 换页时不会被替换掉
+    document.body.insertBefore(barEl, document.body.firstChild);
+    return true;
+  }
+
+  function remove() {
+    if (barEl && barEl.parentNode) {
+      barEl.parentNode.removeChild(barEl);
+    }
+    barEl = null;
+    fillEl = null;
+  }
 
   function update() {
+    if (!fillEl) return;
+
     var doc = document.documentElement;
     var scrollTop = window.pageYOffset || doc.scrollTop || 0;
     var scrollable = (doc.scrollHeight || document.body.scrollHeight) - window.innerHeight;
     var ratio = scrollable > 0 ? scrollTop / scrollable : 0;
     if (ratio < 0) ratio = 0;
     if (ratio > 1) ratio = 1;
-    fill.style.transform = 'scaleX(' + ratio + ')';
+    fillEl.style.transform = 'scaleX(' + ratio + ')';
   }
 
   /* 节流：同一帧内最多算一次。
@@ -70,5 +103,13 @@
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
-  update();
+
+  /* PJAX 换页后重新判断页面类型。
+     PJAX 通常会把滚动位置复位到顶部，所以这里立刻 update() 一次，
+     免得进度条还停在上一页的比例上。 */
+  document.addEventListener('pjax:complete', function () {
+    if (ensure()) update();
+  }, false);
+
+  if (ensure()) update();
 })();

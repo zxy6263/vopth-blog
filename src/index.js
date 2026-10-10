@@ -38,7 +38,8 @@ import { verifyAccess } from './access.js';
 import {
   createPost, buildMarkdown, listPosts, deletePost,
   scheduleCreate, scheduleDelete, listScheduled, cancelScheduled,
-  runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure, scheduleStatus
+  runDueSchedules, runSchedulesNow, maybeRunSchedules, recordCronFailure, scheduleStatus,
+  getMusicInfo, fetchAndSaveMusic
 } from './admin.js';
 import { ADMIN_PAGE } from './admin-page.js';
 import { recordVisit, queryVisits, cleanupVisits } from './visits.js';
@@ -302,6 +303,38 @@ export default {
           }));
         } catch (e) {
           return json({ ok: false, error: '查访客记录出错：' + String(e && e.message) }, 500);
+        }
+      }
+
+      // 背景音乐：GET 读当前歌单信息，POST 抓取网易歌单并提交进仓库。
+      //   GET  /admin/api/music
+      //   POST /admin/api/music   body: { playlistId }
+      //
+      // 为什么抓取放在后台、而不是构建时自动跑：
+      //   构建机在 Cloudflare（海外），访问 music.163.com（国内）容易超时，
+      //   让构建依赖它 = 网易一抽风整个部署就挂。
+      //   所以只有站主点「保存并抓取」的那一刻才联网，结果提交进仓库，
+      //   之后的构建是纯离线的。
+      if (action === 'music') {
+        if (request.method === 'GET') {
+          try {
+            return json(await getMusicInfo(env));
+          } catch (e) {
+            return json({ ok: false, error: '读歌单信息出错：' + String(e && e.message) }, 500);
+          }
+        }
+        if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+        let musicBody;
+        try {
+          musicBody = await request.json();
+        } catch (e) {
+          return json({ ok: false, error: '请求体不是合法 JSON' }, 400);
+        }
+        try {
+          const r = await fetchAndSaveMusic(env, musicBody && musicBody.playlistId);
+          return json(r, r.ok ? 200 : 400);
+        } catch (e) {
+          return json({ ok: false, error: '抓取歌单出错：' + String(e && e.message) }, 500);
         }
       }
 

@@ -18,11 +18,12 @@
  *    就有完全一样的 35x35 圆角方块外观、hover 阴影和图标弹跳动画 —— 一行 CSS 都不用写。
  *    而且 <a> 支持中键新标签页打开，对一个「进后台」的链接来说更合适。
  *
- *  要不要管 PJAX
- *    不用。站点的 _config.butterfly.yml 里 pjax.enable 是 false（当初因为「PJAX 与
- *    第三方脚本容易冲突」主动关掉的），所以链接就是普通的整页跳转。
- *    下面那个 pjax:complete 监听是保险：万一以后开了 PJAX，右下的 DOM 会重建，
- *    这行能让入口重新插回去。现在它不会触发，留着无害。
+ *  PJAX
+ *    2026-10-10 起 _config.butterfly.yml 的 pjax.enable 改成了 true（为了音乐
+ *    播放器能跨页不断）。主题的 PJAX 会替换 #rightside-config-hide，右下角这组
+ *    按钮是【重建】的 —— 所以必须靠下面的 pjax:complete 把入口重新插回去。
+ *    当初写这个钩子时 pjax 还是关的（注释写的是"留着无害"），现在它真正在干活。
+ *    删掉那一行的话：PJAX 翻页之后，右下角设置里就找不到进后台的入口了。
  *
  *  不想用这个入口：删掉 _config.butterfly.yml 里 inject.bottom 的那一行即可，
  *  不影响主题和后台的任何功能。
@@ -48,6 +49,6 @@
 
   inject();
 
-  // PJAX 开着的话右下角会随页面重建；现在 pjax 是关的，这行不触发
+  // PJAX 会重建 #rightside-config-hide，所以每次换页都要重新插一次
   document.addEventListener('pjax:complete', inject, false);
 })();

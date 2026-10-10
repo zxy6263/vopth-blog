@@ -13,6 +13,11 @@
  *    2. 系统开了「减少动态效果」-> 随机海报图（不播视频）
  *    3. JS 未执行 / 加载失败 -> 服务端渲染的静态海报图（见各处 top_img 配置）
  *  所以任何一层都不会出现黑块。
+ *
+ *  ⚠️ PJAX：主题的 PJAX 会替换 #body-wrap（整个页面主体），
+ *     所以换页后 video 元素随旧 DOM 一起没了，而脚本【不会重跑】。
+ *     结果就是：从首页 PJAX 到「关于」页时 banner 只有静态图、没有视频。
+ *     所以下面把逻辑包成 run()，并挂在 pjax:complete 上重跑。
  * ========================================================================= */
 (function () {
   'use strict';
@@ -49,8 +54,6 @@
 
   /* ---------------------------------------------------------------------- */
 
-  var path = window.location.pathname.replace(/index\.html$/, '');
-
   function usesPool(p) {
     if (POOL_PAGES.indexOf(p) !== -1) return true;
     // 标签 / 分类的子页面（如 /tags/Hexo/）也用池子，否则同一栏目下
@@ -58,47 +61,55 @@
     return p.indexOf('/tags/') === 0 || p.indexOf('/categories/') === 0;
   }
 
-  if (!VIDEO_POOL.length) return;
-  if (!usesPool(path)) return;
+  function run() {
+    var path = window.location.pathname.replace(/index\.html$/, '');
 
-  var header = document.getElementById('page-header');
-  if (!header) return;
-  if (header.querySelector('.banner-video')) return; // 防重复插入
+    if (!VIDEO_POOL.length) return;
+    if (!usesPool(path)) return;
 
-  // 随机挑一个
-  var pick = VIDEO_POOL[Math.floor(Math.random() * VIDEO_POOL.length)];
+    var header = document.getElementById('page-header');
+    if (!header) return;
+    if (header.querySelector('.banner-video')) return; // 防重复插入
 
-  // 先把背景换成本次挑中的海报图。
-  // JS 设置的行内样式会覆盖服务端渲染的那一张 —— 这样「减少动态效果」的
-  // 用户看到的也是随机的那张，而不是固定的一张。
-  header.style.backgroundImage = 'url("' + pick.poster + '")';
+    // 随机挑一个
+    var pick = VIDEO_POOL[Math.floor(Math.random() * VIDEO_POOL.length)];
 
-  // 尊重系统的「减少动态效果」：到这里为止，只显示静态海报图
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return;
+    // 先把背景换成本次挑中的海报图。
+    // JS 设置的行内样式会覆盖服务端渲染的那一张 —— 这样「减少动态效果」的
+    // 用户看到的也是随机的那张，而不是固定的一张。
+    header.style.backgroundImage = 'url("' + pick.poster + '")';
+
+    // 尊重系统的「减少动态效果」：到这里为止，只显示静态海报图
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    var v = document.createElement('video');
+    v.className = 'banner-video';
+    v.src = pick.src;
+    v.poster = pick.poster;
+    v.autoplay = true;
+    v.muted = true;        // 必须静音，否则浏览器一律拒绝自动播放
+    v.loop = true;
+    v.playsInline = true;  // iOS 上允许内联播放（不强制全屏）
+    v.preload = 'auto';
+    v.setAttribute('muted', '');
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('aria-hidden', 'true'); // 纯装饰，屏幕阅读器跳过
+
+    header.insertBefore(v, header.firstChild);
+    header.classList.add('has-video-banner');
+
+    // 少数情况（省电模式、后台标签页）浏览器会拒绝自动播放。
+    // 播放失败不影响使用 —— 海报图还在，文章照样能读。
+    var playing = v.play();
+    if (playing && typeof playing.catch === 'function') {
+      playing.catch(function () { /* 静默忽略：保留静态海报即可 */ });
+    }
   }
 
-  var v = document.createElement('video');
-  v.className = 'banner-video';
-  v.src = pick.src;
-  v.poster = pick.poster;
-  v.autoplay = true;
-  v.muted = true;        // 必须静音，否则浏览器一律拒绝自动播放
-  v.loop = true;
-  v.playsInline = true;  // iOS 上允许内联播放（不强制全屏）
-  v.preload = 'auto';
-  v.setAttribute('muted', '');
-  v.setAttribute('playsinline', '');
-  v.setAttribute('webkit-playsinline', '');
-  v.setAttribute('aria-hidden', 'true'); // 纯装饰，屏幕阅读器跳过
-
-  header.insertBefore(v, header.firstChild);
-  header.classList.add('has-video-banner');
-
-  // 少数情况（省电模式、后台标签页）浏览器会拒绝自动播放。
-  // 播放失败不影响使用 —— 海报图还在，文章照样能读。
-  var playing = v.play();
-  if (playing && typeof playing.catch === 'function') {
-    playing.catch(function () { /* 静默忽略：保留静态海报即可 */ });
-  }
+  run();
+  // PJAX 换页后 DOM 是新的，必须重跑；否则栏目页的 banner 只剩静态海报图。
+  document.addEventListener('pjax:complete', run, false);
 })();

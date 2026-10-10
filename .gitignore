@@ -30,3 +30,8 @@ Thumbs.db
 .dsh-project-memory/
 .project-notes/
 .wrangler-dev.log
+# ---- 本地测试产物（PJAX/播放器自测用，不进仓库）----
+_localserver.log
+_localserver.err
+_shots/
+_shot.py
