@@ -57,7 +57,14 @@ from pathlib import Path
 import websockets
 
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-SITE = "http://127.0.0.1:4000"
+
+# 默认测本地；也可以传第一个参数直接测线上：
+#     python tools/pjax-music-selftest.py https://vopth.xyz
+SITE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:4000"
+
+# 页面上「关于页 banner 视频」「后台入口」这些只有本地服务器在跑时才有，
+# 线上跑的时候要跳过（线上是 Cloudflare，行为一致但不该依赖本地服务）。
+IS_LOCAL = "127.0.0.1" in SITE or "localhost" in SITE
 
 
 def free_port() -> int:
