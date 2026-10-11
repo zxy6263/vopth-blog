@@ -14,7 +14,9 @@
     "del-post": "node tools/del-post.js",
     "deploy": "hexo deploy",
     "check:admin": "node tools/check-admin-page.js",
-    "check:worker": "npx wrangler deploy --dry-run"
+    "check:worker": "npx wrangler deploy --dry-run",
+    "test:music": "node tools/pjax-music-selftest.js",
+    "test:music:live": "node tools/pjax-music-selftest.js https://vopth.xyz"
   },
   "engines": {
     "node": ">=20"
