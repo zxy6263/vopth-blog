@@ -160,6 +160,54 @@ footer:
   copyright:
     enable: true
     version: true
+
+  # 多栏链接区（主题的 .footer-flex，见主题 footer.pug）。
+  # 不加这一段时页脚只有「版权 + 自定义文本」两行，显得空；
+  # 加上之后像正规站点的页脚：上面几栏导航，下面版权与状态。
+  #
+  # 结构（pug 里是 nav → block → blockItem → subitem）：
+  #   nav:                          ← 外层数组，每个元素是一栏
+  #     - width: 1                  ← 可选，flex-grow，控制栏宽
+  #       content:                  ← 栏内可以有多个"组"
+  #         - title: 栏标题
+  #           item:                 ← 组内的条目
+  #             - title: 文字        ← 有 url 就渲染成 <a>，没有就渲染成 <div>
+  #               url: /about/
+  #             - html: '<任意HTML>' ← 也可以直接塞 HTML
+  nav:
+    - content:
+        - title: 导航
+          item:
+            - title: 关于
+              url: /about/
+            - title: 归档
+              url: /archives/
+            - title: 分类
+              url: /categories/
+            - title: 标签
+              url: /tags/
+    - content:
+        - title: 订阅
+          item:
+            - title: RSS 订阅
+              url: /atom.xml
+            - title: 订阅说明
+              url: /subscribe/
+            - title: 友链
+              url: /link/
+    - content:
+        - title: 其他
+          item:
+            - title: 隐私政策
+              url: /privacy/
+            - title: GitHub
+              url: https://github.com/zxy6263
+            - title: 联系站主
+              url: mailto:3585648116@qq.com
+  # ⚠️ 试过加第四栏放"关于本站"简介来填右侧空白 —— 站主反馈"反而更丑"。
+  #    三栏靠左、右侧留白，比硬塞一段内容干净。
+  #    页脚右侧的空白不是缺陷，是留白。
+
   # 页脚最下面那行是免责声明。
   # 站点用了网络上的封面图和视频素材，把「来源」和「怎么找我删」写出来，
   # 比什么都不写稳妥；「联系」做成可点的邮箱，别让人还得自己去找地址。
@@ -169,7 +217,18 @@ footer:
   #   · 另外在 inject.bottom 里还挂了一个 type="banner" 的同款组件，
   #     那个只在【服务异常时】才出现（平时 data-empty 自动隐藏），做灾难提示。
   #     两个共用同一个 widget.js（页面底部只加载一次脚本），互不冲突。
-  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a><br><span class="footer-disclaimer">封面壁纸均来源于网络，侵权请<a href="mailto:3585648116@qq.com">联系</a>删除</span> · <flashduty-status-widget page="https://statuspage.flashcat.cloud/vopth" type="badge" theme="auto" locale="zh"></flashduty-status-widget>'
+  #
+  #   ⚠️ 徽章前面【不要】加 " · " 分隔符（2026-10-13 站主反馈"有个莫名其妙的小点"）：
+  #      徽章是白底圆角卡片，自带边框和 padding，视觉上已经和文字分开了 ——
+  #      再加分隔符是多余的。而且徽章比较宽，窄屏会被挤到下一行，
+  #      那个 "·" 就孤零零留在行首，看起来像个错误。
+  #      这里改成主动 <br> 换行：宽窄屏表现一致，也不会出现游离的分隔符。
+  #
+  # ⚠️ 「隐私政策」的入口也放在这一行里（不占主导航）：
+  #    本站确实记录了访问者 IP / 地区 / 运营商（见 src/visits.js），
+  #    属于个人信息，法律上要有【告知】。页脚是这类说明的常规位置。
+  #    改采集字段或 KEEP_DAYS 时，source/privacy/index.md 要一起改。
+  custom_text: '由 <a href="https://hexo.io" target="_blank" rel="noopener">Hexo</a> 驱动 · 托管于 <a href="https://workers.cloudflare.com/" target="_blank" rel="noopener">Cloudflare Workers</a> · <a href="/privacy/">隐私政策</a><br><span class="footer-disclaimer">封面与视频素材来源于网络，若侵犯您的权利请<a href="mailto:3585648116@qq.com">联系</a>删除</span><br><flashduty-status-widget page="https://statuspage.flashcat.cloud/vopth" type="badge" theme="auto" locale="zh"></flashduty-status-widget>'
 
 # ------------------------------------------------------------------ 侧边栏
 aside:

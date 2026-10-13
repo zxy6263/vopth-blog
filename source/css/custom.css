@@ -723,6 +723,30 @@
 }
 
 /* ---------------------------------------------------------------------------
+ *  ⚠️ 修掉「页脚链接悬停时消失」（2026-10-13 站主报的问题）
+ *
+ *  主题的规则是这两条：
+ *      #footer          { background-color: $light-blue }    → Stylus 变量
+ *      #footer a:hover  { color: #4a6cf7 }
+ *
+ *  而本站在 _config.butterfly.yml 里设了 theme_color.main = '#4A6CF7'，
+ *  $light-blue 取的就是它 —— 于是：
+ *
+ *      页脚背景色  = #4a6cf7
+ *      悬停文字色  = #4a6cf7
+ *      → 同一个颜色 → 字"消失"了
+ *
+ *  它不是渐隐动画的问题，是纯粹的同色。只有在「页脚背景用了主题色」
+ *  这个配置下才会暴露，所以主题自己不觉得是 bug。
+ *
+ *  改成白色：在蓝底上对比度足够，亮色/暗色模式都成立。
+ *  覆盖的是主题的 #footer a:hover，优先级相同但后加载，所以生效。
+ * ------------------------------------------------------------------------- */
+#footer a:hover {
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
  *  14. 阅读进度条
  *
  *  由 source/js/reading-progress.js 插入。只在有正文容器的页面出现。
@@ -1002,7 +1026,169 @@
   }
 }
 
-/* 系统开了「减少动态效果」就别做过渡动画 */
+/* ---------------------------------------------------------------------------
+ *  17. 页脚重做：浅色克制风格（2026-10-13）
+ *
+ *  站主看了腾讯云官网的页脚，觉得本站的"有点丑"。对比下来差在三处：
+ *
+ *    ① 背景   本站是主题色大色块（#4a6cf7）—— 页脚本该是视觉最底层，
+ *             现在它比正文还抢眼。腾讯云是纯白，页脚"退到后面去"。
+ *    ② 对齐   本站全部居中 —— 几行字浮在一片蓝上，显得空。
+ *             腾讯云左对齐，视觉上有骨架。
+ *    ③ 层级   本站字号基本一致，分不出主次。
+ *             腾讯云分三档（链接 / 版权 / 备案），层次分明。
+ *
+ *  做法：背景改成和页面同色 + 一条细分割线；左对齐；字号拉开层级。
+ *
+ *  ⚠️ 两个必须同时改的地方，否则会出现"浅字浅底"：
+ *     · 主题的 #footer > * 和 #footer a 用的是 var(--light-grey)，
+ *       它在亮色模式下是 #eee —— 那是为蓝底准备的，放到浅底上就看不见了。
+ *       这里换成 var(--card-meta)（亮 #858585 / 暗 rgba(255,255,255,.7)）。
+ *     · 主题的 a:hover 用的是 $light-blue（= 主题色）。在浅底上其实还行，
+ *       但为保险起见固定成 #4a6cf7 —— 不能用 var(--btn-bg)，
+ *       因为它在暗色模式下是 #1f1f1f（深色），hover 就"消失"了。
+ *       （这个坑刚在页脚链接上踩过一次，见第 13 节。）
+ *
+ *  ⚠️ 别把 text-align 覆盖写成 !important 之外的花样：
+ *     主题的 .footer-other 是 text-align: center，优先级相同，
+ *     靠 custom.css 后加载取胜（它在 <link> 里排在 index.css 之后）。
+ * ------------------------------------------------------------------------- */
+
+#footer {
+  /* 不再是主题色大色块：和页面同色，只靠一条细线跟正文分开 */
+  background-color: var(--global-bg);
+  border-top: 1px solid rgba(128, 128, 128, 0.14);
+}
+
+/* 文字整体降一档：从"为蓝底准备的浅灰"换成次要文字灰 */
+#footer > * {
+  color: var(--card-meta);
+}
+
+#footer a {
+  color: var(--card-meta);
+  transition: color 0.2s ease;
+}
+
+/* ⚠️ 固定成主题色，不要用 var(--btn-bg)（暗色下它是深色，hover 会消失） */
+#footer a:hover {
+  color: #4a6cf7;
+}
+
+/* --- 布局：居中 → 两栏（左信息 / 右徽章），并收窄到和正文同宽 --- */
+#footer .footer-other {
+  display: flex;
+  flex-wrap: wrap;
+  /* ⚠️ 用 flex-start 不用 flex-end：
+     两栏行数不同（左 2 行、右 3 行），flex-end 会把左栏压到底部，
+     看起来像"错位"。顶部对齐时两栏齐平，才像正常的页脚。 */
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 26px 24px 34px;
+  /* ⚠️ 左对齐之后，页脚内容会跑到左下角 —— 而悬浮音乐播放器
+     （.vopth-music，left: 20px）正好也在那儿，两者会叠在一起。
+     所以改成两栏：左边放信息，右边放状态徽章，把徽章挪到右下角去。 */
+  text-align: left;
+}
+
+#footer .footer-copyright {
+  /* ⚠️ 不能用 flex: 1 1 auto —— 那会让左栏"占满整行"，
+     把右栏挤到下一行，两栏变成上下错位（实测踩过）。
+     两栏都按内容宽度，靠容器的 justify-content: space-between 拉开。 */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* 右栏整体靠右、栏内右对齐 —— 徽章就落到右下角，避开左下角的按钮 */
+#footer .footer_custom_text {
+  flex: 0 1 auto;
+  max-width: 100%;
+  text-align: right;
+}
+
+/* --- 层级：版权行稍深，其余更淡 --- */
+#footer .footer-copyright {
+  font-size: 0.86em;
+  line-height: 1.9;
+}
+
+#footer .footer_custom_text {
+  margin-top: 10px;
+  font-size: 0.82em;
+  line-height: 2;
+}
+
+/* 免责声明：再淡一档（它在 custom_text 内部，字号是相对父级的） */
+#footer .footer-disclaimer {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.78;
+}
+
+/* 状态徽章：浅底上它本来就是白底卡片，样式不用改，只要给点呼吸空间 */
+#footer flashduty-status-widget {
+  display: inline-block;
+  margin-top: 12px;
+  vertical-align: middle;
+}
+
+/* 小屏：少留点边距 */
+@media screen and (max-width: 768px) {
+  #footer .footer-other {
+    padding: 22px 16px 28px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ *  18. 页脚多栏链接区（footer.nav，2026-10-13）
+ *
+ *  主题的 .footer-flex 默认是 justify-content: space-between +
+ *  max-width: 1200px + padding: 40px 60px。
+ *
+ *  ⚠️ 那个"两端对齐"是给【内容很多的大型站点】准备的 ——
+ *     本站三栏一共只有 10 个链接，用 space-between 会把它们推到
+ *     最左 / 正中间 / 最右，中间空出一大片，非常难看（实测过）。
+ *
+ *  改成靠左聚集 + 固定栏间距：三栏并排，右侧留白，读起来是"一组信息"。
+ *  栏与栏的间隔用 gap 的列间距控制。
+ * ------------------------------------------------------------------------- */
+#footer .footer-flex {
+  justify-content: flex-start;
+  /* 栏间距加大：四栏拉开铺满，右侧就不会空一大块 */
+  gap: 12px 84px;
+  /* 和 .footer-other 的左右内边距对齐，两块的文字左边缘才在同一条线上 */
+  padding: 34px 24px 4px;
+}
+
+/* 栏标题：主题给的是 1.4em（对页脚来说偏大），收一档并降为次要色 */
+#footer .footer-flex-title {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--font-color);
+  margin-bottom: 6px;
+}
+
+/* 栏内链接：行距按站主要求拉大（原来 6px 偏挤） */
+#footer .footer-flex a {
+  margin: 10px 0;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+
+@media screen and (max-width: 768px) {
+  #footer .footer-flex {
+    gap: 10px 40px;
+    padding: 26px 16px 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ *  18. 系统开了「减少动态效果」就别做过渡动画
+ *      （原来贴在音乐播放器那一节末尾，第 17 节插入时被挤到这里）
+ * ------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .vopth-music-hint {
     animation: none;
@@ -1010,6 +1196,10 @@
 
   .vopth-music-panel,
   .vopth-music-toggle {
+    transition: none;
+  }
+
+  #footer a {
     transition: none;
   }
 }
