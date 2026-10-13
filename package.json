@@ -5,9 +5,10 @@
   "description": "vopth.xyz — 个人主页与博客，Hexo + Butterfly，部署于 Cloudflare Workers",
   "scripts": {
     "clean": "hexo clean",
-    "build": "hexo generate && node tools/post-build.js && node tools/indexnow.js && node tools/baidu-push.js",
+    "build": "hexo generate && node tools/post-build.js && pagefind --site public && node tools/indexnow.js && node tools/baidu-push.js",
     "baidu": "node tools/baidu-push.js --force",
     "server": "hexo server",
+    "preview": "npm run build && hexo server --static",
     "dev": "hexo server --draft",
     "new": "hexo new",
     "new-post": "node tools/new-post.js",
@@ -44,6 +45,7 @@
     "hexo-wordcount": "^6.0.1"
   },
   "devDependencies": {
+    "pagefind": "^1.5.2",
     "pinyin-pro": "^3.29.4"
   }
 }

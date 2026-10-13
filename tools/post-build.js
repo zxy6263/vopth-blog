@@ -107,3 +107,85 @@ for (const name of FILES) {
 }
 
 console.log(`[post-build] 完成，共复制 ${copied} 个文件。`);
+
+/* ------------------------------------------------------ 给 Pagefind 标注正文
+ *
+ * 为什么需要这一步
+ * ----------------
+ * Pagefind 默认索引整个 <body> —— 导航栏、侧边栏、页脚、相关文章列表全进去。
+ * 2026-10-12 实测的后果（站点 11 篇文章）：
+ *
+ *   · 它索引了 50 个页面（把标签页/分类页/归档页都算上了）
+ *   · 标签页里含全站文章标题列表 → 任何词命中一篇文章就命中所有列表页
+ *     搜「静默失败」命中 49 条，第一名还是「博客」这个标签页
+ *   · 摘录里混进日期和相邻文章的标题
+ *
+ * 给正文容器加 data-pagefind-body 之后：
+ *   50 pages / 3112 words  →  11 pages / 2893 words
+ *   搜「静默失败」49 条 → 3 条，且全是真实文章标题，摘录也只剩正文
+ *
+ * 为什么写在这里而不是改主题模板
+ * ------------------------------
+ * 项目约定：不碰 node_modules 里的主题（升级会被覆盖，而且公开仓库里改不了别人的包）。
+ * post-build 改的是构建产物，效果一样，主题升级不受影响。
+ * 这和本文件已经在做的事（复制 _headers、写 build-info.json）是同一类操作。
+ *
+ * 识别规则（2026-10-12 实测确认）
+ * ------------------------------
+ *   文章页：<meta og:type="article"> 且含 id="article-container"  → 11 个
+ *   列表页：og:type="website"，没有 article-container              → 其余 41 个
+ */
+function injectPagefindBody() {
+  const NEEDLE = 'data-pagefind-body';
+  let injected = 0;
+  let scanned = 0;
+
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (e) {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.name.endsWith('.html')) continue;
+      scanned += 1;
+
+      const html = fs.readFileSync(full, 'utf8');
+      // 只处理文章页；列表页直接跳过（跳过等于把它排除出索引）
+      if (!html.includes('content="article"')) continue;
+      if (!html.includes('id="article-container"')) continue;
+      if (html.includes(NEEDLE)) continue;
+
+      const next = html.replace(
+        /<article\b[^>]*id="article-container"[^>]*>/,
+        (tag) => tag.replace('id="article-container"', NEEDLE + ' id="article-container"')
+      );
+      if (next !== html) {
+        fs.writeFileSync(full, next, 'utf8');
+        injected += 1;
+      }
+    }
+  };
+
+  walk(publicDir);
+  console.log(
+    `[post-build] Pagefind 正文标注：扫描 ${scanned} 个 HTML，注入 ${injected} 个文章页`
+  );
+
+  // 一个都没注入要报警 —— 否则搜索会悄悄退化成"索引整站"，而且不报错
+  if (injected === 0 && scanned > 0) {
+    console.warn(
+      '[post-build] 警告：没有任何文章页被注入 data-pagefind-body。' +
+        '可能是文章页选择器失效（主题结构变了）—— 搜索结果会被列表页污染。'
+    );
+  }
+  return injected;
+}
+
+injectPagefindBody();

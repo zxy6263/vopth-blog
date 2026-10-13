@@ -47,6 +47,30 @@
 /search.xml
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 
+# --------------------------------------------------------- Pagefind 搜索索引
+#
+# 站内搜索换成了 Pagefind（见 source/js/pagefind-search.js）。
+# 它生成的产物分两类，缓存策略必须分开：
+#
+#   文件名带 hash 的（zh-cn_85b9da8.pf_index / xxx.pf_meta）
+#     → 内容一变文件名就变，可以放心长缓存
+#   文件名不带 hash 的（pagefind.js / pagefind-ui.css / pagefind-entry.json）
+#     → 升级 Pagefind 版本后 URL 不变，不能长缓存
+#
+# ⚠️ 规则顺序有讲究：Cloudflare 的 _headers 是【后者覆盖前者】，
+#    所以"带 hash 的长缓存"必须写在"整个目录的中缓存"【后面】。
+/pagefind/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+/pagefind/index/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/pagefind/*.pf_index
+  Cache-Control: public, max-age=31536000, immutable
+
+/pagefind/*.pf_meta
+  Cache-Control: public, max-age=31536000, immutable
+
 # RSS：阅读器会轮询，给半小时 + 后台更新
 /atom.xml
   Cache-Control: public, max-age=1800, stale-while-revalidate=86400

@@ -425,6 +425,10 @@ CDN:
 inject:
   head:
     - '<link rel="stylesheet" href="/css/custom.css">'
+    # Pagefind 搜索的样式。文件由 `pagefind --site public` 生成到 public/pagefind/，
+    # build 脚本里跑，所以本地必须 `npm run preview`（先构建）才存在 ——
+    # 直接 `npm run server` 会 404，搜索样式丢失。
+    - '<link rel="stylesheet" href="/pagefind/pagefind-ui.css">'
     # 手动声明站点地图。
     # 不用 hexo-generator-sitemap 的 rel: true —— 它的注入正则是
     # /<head>(?!<\/head>).+?<\/head>/，没有 s 标志、跨不了换行，
@@ -442,6 +446,12 @@ inject:
     - '<script src="/js/post-edit.js" defer></script>'
     # 搜索快捷键：Ctrl+K / Cmd+K / 直接按斜杠。
     - '<script src="/js/search-shortcut.js" defer></script>'
+    # 站内搜索改用 Pagefind（替换主题的 local-search）。
+    # 主题那个前端按空格切词 + indexOf 子串匹配，中文整句搜不到；
+    # 详见 source/js/pagefind-search.js 顶部的实测数据。
+    # ⚠️ 顺序：UI 在前、接管脚本在后。
+    - '<script src="/pagefind/pagefind-ui.js" defer></script>'
+    - '<script src="/js/pagefind-search.js" defer></script>'
     # 右下角「设置」里加一个进后台的入口（往 #rightside-config-hide 里插一个 <a>）。
     # 不想用就把这一行删掉，不影响后台本身。
     - '<script src="/js/admin-entry.js" defer></script>'
