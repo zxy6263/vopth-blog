@@ -117,10 +117,21 @@ prismjs:
 
 # ------------------------------------------------------------------ 搜索
 # 供 Butterfly 的本地搜索（local_search）生成 search.xml
+#
+# ⚠️ 2026-10-12：站内搜索已经换成 Pagefind（见 source/js/pagefind-search.js），
+#    主题这套 local-search 实际上【不再承担搜索功能】—— 它的结果区被我们隐藏了。
+#
+#    但主题的 local-search.js 仍然会被加载，而且【弹层的开关逻辑（点按钮打开、
+#    点遮罩关闭、Esc 关闭）是它提供的】，所以不能把这个插件整个去掉：
+#    search.xml 一旦 404，它初始化可能失败，搜索弹层就打不开了。
+#
+#    所以改成 content: false —— 只索引标题，search.xml 从 139 KB 降到几 KB，
+#    主题的 JS 照常初始化（弹层可用），而我们真正用的 Pagefind 不受影响。
+#    代价：主题那份搜索只剩标题匹配（无所谓，结果区是隐藏的）。
 search:
   path: search.xml
   field: post
-  content: true
+  content: false
   format: html
 
 # ------------------------------------------------------------------ 站点地图
