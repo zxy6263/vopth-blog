@@ -1060,6 +1060,24 @@
   border-top: 1px solid rgba(128, 128, 128, 0.14);
 }
 
+/* ⚠️ 去掉主题自动加的那层灰底（2026-10-13 站主问"页脚底下这一栏为什么是灰的"）
+ *
+ * 主题的 footer.styl 里有这么一段：
+ *     .footer-other
+ *       if hexo-config('footer.nav')          ← 只要配了 footer.nav
+ *         padding: 10px 8px
+ *         background-color: rgba(0, 0, 0, .1)  ← 就给版权那栏叠 10% 黑
+ *
+ * 也就是说：一启用三栏链接（footer.nav），版权栏就自动变成灰的。
+ * 主题这么做是想把「链接区」和「版权区」用底色分开，但：
+ *   · 亮色模式下是浅灰，暗色模式下「黑叠黑」几乎看不出 —— 两种模式不一致
+ *   · 页脚本来就该是视觉最底层，多一块灰又把它抬起来了
+ * 所以直接清掉，整块和页面同色，靠 #footer 顶部那条细线和正文分隔。
+ */
+#footer .footer-other {
+  background-color: transparent;
+}
+
 /* 文字整体降一档：从"为蓝底准备的浅灰"换成次要文字灰 */
 #footer > * {
   color: var(--card-meta);
