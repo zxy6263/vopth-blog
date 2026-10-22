@@ -62,6 +62,25 @@ function Get-BodyText {
     return [string]$Response.Content
 }
 
+# Read one response header, case-insensitively.
+# - PS 5.1: .Headers is a System.Net.WebHeaderCollection (values are strings)
+# - PS 7  : .Headers is a dictionary of string -> string[] (values are arrays)
+# Returns '' when absent, so callers can just test truthiness.
+function Get-HeaderValue {
+    param($Headers, [string]$Name)
+
+    if ($null -eq $Headers) { return '' }
+
+    foreach ($k in $Headers.Keys) {
+        if ([string]$k -ieq $Name) {
+            $v = $Headers[$k]
+            if ($v -is [array]) { return ($v -join ', ') }
+            return [string]$v
+        }
+    }
+    return ''
+}
+
 # Fetch a URL and ALWAYS return a hashtable - never throw.
 # On non-2xx we still try hard to capture the response body.
 function Invoke-Page {
@@ -69,7 +88,7 @@ function Invoke-Page {
 
     try {
         $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 30 -MaximumRedirection 6
-        return @{ Ok = $true; Status = [int]$r.StatusCode; Body = (Get-BodyText $r) }
+        return @{ Ok = $true; Status = [int]$r.StatusCode; Body = (Get-BodyText $r); Headers = $r.Headers }
     }
     catch {
         $status = 0
@@ -309,6 +328,68 @@ if ($BaseUrl -like 'https://*') {
 } else {
     Write-Result 'served over HTTPS' 'WARN' 'target is HTTP, TLS not verified'
     $script:Warn++
+}
+
+Write-Host ''
+
+# ------------------------------------------------- 6b. security response headers
+Write-Host '--- 6b. Security headers ---'
+
+# Why this section exists:
+#   These headers live in the repo's `_headers` file. A malformed block there
+#   does NOT fail the deploy - Cloudflare simply ignores the lines it cannot
+#   parse, so the header disappears silently while everything else looks fine.
+#   That is exactly how HSTS went missing for months. Assert on the real
+#   response, not on the file.
+$secResp = $null
+try {
+    $secResp = Invoke-WebRequest -Uri $BaseUrl -UseBasicParsing -TimeoutSec 30 -MaximumRedirection 6
+} catch { }
+
+if (-not $secResp) {
+    Write-Result 'security headers' 'FAIL' 'could not fetch homepage headers'
+    $script:Fail++
+} else {
+    $hdrs = $secResp.Headers
+
+    # HSTS - must exist AND be long enough. A short max-age is nearly useless.
+    $hsts = Get-HeaderValue $hdrs 'Strict-Transport-Security'
+    if ($hsts -match 'max-age\s*=\s*(\d+)') {
+        $age = [int]$Matches[1]
+        if ($age -ge 31536000) {
+            Write-Result 'HSTS present' 'PASS' ('max-age=' + $age)
+            $script:Pass++
+        } else {
+            Write-Result 'HSTS max-age too short' 'WARN' ('max-age=' + $age + ', want >= 31536000')
+            $script:Warn++
+        }
+    } elseif ($hsts) {
+        Write-Result 'HSTS present but unparsable' 'WARN' $hsts
+        $script:Warn++
+    } else {
+        Write-Result 'HSTS present' 'FAIL' 'Strict-Transport-Security missing'
+        $script:Fail++
+    }
+
+    $coop = Get-HeaderValue $hdrs 'Cross-Origin-Opener-Policy'
+    if ($coop) {
+        Write-Result 'COOP present' 'PASS' $coop
+        $script:Pass++
+    } else {
+        Write-Result 'COOP present' 'FAIL' 'Cross-Origin-Opener-Policy missing'
+        $script:Fail++
+    }
+
+    foreach ($h in @('X-Content-Type-Options', 'X-Frame-Options', 'Referrer-Policy', 'Permissions-Policy')) {
+        $v = Get-HeaderValue $hdrs $h
+        if ($v) {
+            Write-Result $h 'PASS' $v
+            $script:Pass++
+        } else {
+            Write-Result $h 'FAIL' 'missing'
+            $script:Fail++
+        }
+    }
 }
 
 Write-Host ''
