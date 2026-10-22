@@ -13,11 +13,38 @@
 #    下面按「这个文件多久会变」分别给策略。
 # ===========================================================================
 
+# ----------------------------------------------------------------- 安全头
+# ⚠️ 格式注意：块内（某条路径下面）只能写「  Header-Name: value」，
+#    注释必须顶格写在块【外面】。缩进的 # 可能被解析成畸形头部。
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
   Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+
+# --------------------------------------------------------------- HSTS 说明
+# 作用：告诉浏览器「这个站，一年内只走 HTTPS」。
+#   · 保护【第一次之后】的所有访问 —— 浏览器自己把 http:// 升级成
+#     https://，连请求都不发出去，所以不存在被 302 劫持的窗口。
+#   · 但保护不了【第一次】：那一次如果走 http://，浏览器还不知道这条规则。
+#     那一步必须靠 Cloudflare 的 "Always Use HTTPS"
+#     （控制台 → SSL/TLS → Edge Certificates → Always Use HTTPS）。
+#     ⚠️ 两者要一起开：HSTS 是浏览器侧，Always Use HTTPS 是服务端侧。
+#
+# ⚠️ 这是【单向棘轮】—— 浏览器记住 max-age 后，过期前不会再走 http://。
+#    · 不要加 preload：进了浏览器内置列表，撤销要等几个月
+#    · includeSubDomains 会连带保护 www.vopth.xyz
+#      （已确认它也在 Cloudflare 上、HTTPS 正常）
+#    · 将来若要加「只支持 HTTP」的子域名，必须先去这条，并等旧值过期
+#
+# --------------------------------------------------------------- COOP 说明
+# 作用：把本文档和跨域窗口隔离，防 XS-Leak 类攻击（window.opener 侧信道）。
+#   · 只影响【弹窗 / window.open / opener 关系】
+#   · 【不影响跨域 iframe】—— 网易播放器 iframe、giscus 评论 iframe 都正常
+#   · 站内没有任何 window.open，target="_blank" 的链接也都带了
+#     rel="noopener"，所以不会有功能被这一步切断
 
 # ----------------------------------------------------------------- 长缓存
 # 图片、字体这类基本不变的内容，缓存一周
