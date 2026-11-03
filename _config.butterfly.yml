@@ -532,3 +532,9 @@ inject:
     # 鼠标点一下的粒子特效（canvas）。脚本挂在 document 上，PJAX 换页不用重init。
     # 系统开了「减少动态效果」或纯触屏设备时自己不启用，见 source/js/click-firework.js。
     - '<script src="/js/click-firework.js" defer></script>'
+    # 侧边栏天气卡片。数据源 ipwho.is（定位）+ open-meteo（天气/空气），都免 key。
+    # 对齐参考站点 tangyuxian.com 的效果，但自己渲染，配色跟主题走。
+    - '<script src="/js/weather-card.js" defer></script>'
+    # 深色模式切换的圆形扩散过渡（View Transitions API）。
+    # 不支持该 API 或开了「减少动态效果」时自动放行，主题照常瞬间切换。
+    - '<script src="/js/theme-transition.js" defer></script>'

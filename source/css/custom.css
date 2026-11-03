@@ -1375,3 +1375,315 @@ pre,
   }
 }
 
+
+
+/* ===========================================================================
+   21. 侧边栏天气卡片
+   ---------------------------------------------------------------------------
+   结构由 source/js/weather-card.js 渲染，类名统一 vw-wx- 前缀。
+
+   底色 / 圆角 / 阴影都复用主题的变量（--card-bg、--card-box-shadow），
+   这样跟上面「个人资料」「公告」两张卡看起来是一套东西，
+   主题切深色模式时也不用另写一套。
+   =========================================================================== */
+
+.vw-wx-card {
+  padding: 16px 18px;
+}
+
+/* ---- 顶部：城市 + 切换 + 空气质量 ---- */
+.vw-wx-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vw-wx-city {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vw-wx-cityname {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--font-color, #4c4948);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vw-wx-switch {
+  flex: none;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: #4a6cf7;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.vw-wx-switch:hover {
+  opacity: .7;
+}
+
+.vw-wx-aqline {
+  flex: none;
+  font-size: 12px;
+  color: var(--card-meta, #858585);
+  white-space: nowrap;
+}
+
+.vw-wx-aq {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #fff;
+  background: #9aa0ac;
+}
+
+.vw-wx-aq.aq-good  { background: #2fae6a; }   /* 优 */
+.vw-wx-aq.aq-mid   { background: #d9a520; }   /* 良 */
+.vw-wx-aq.aq-bad   { background: #e0733a; }   /* 轻度 / 中度 */
+.vw-wx-aq.aq-worse { background: #c53030; }   /* 重度 / 严重 */
+
+/* ---- 当前温度 ---- */
+.vw-wx-now {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--light-grey, rgba(0, 0, 0, .08));
+  margin-bottom: 12px;
+}
+
+.vw-wx-now-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.vw-wx-now-temp {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: #4a6cf7;
+  letter-spacing: -.5px;
+}
+
+.vw-wx-now-text {
+  font-size: 13px;
+  color: var(--card-meta, #858585);
+}
+
+/* ---- 未来几天 ---- */
+.vw-wx-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.vw-wx-day {
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  /* 不用 var(--text-bg-hover) —— 主题那个变量不透明度偏高，
+     三格并排会变成三块实心蓝，压过里面的温度数字。
+     这里用 7% 的淡底，只起分组作用。 */
+  background: rgba(74, 108, 247, 0.07);
+}
+
+.vw-wx-day-label {
+  font-size: 11px;
+  color: var(--card-meta, #858585);
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.vw-wx-day-icon {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.vw-wx-day-temp {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--font-color, #4c4948);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.vw-wx-day-text {
+  font-size: 11px;
+  color: var(--card-meta, #858585);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 切换城市的输入框 ---- */
+.vw-wx-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.vw-wx-form[hidden] {
+  display: none;
+}
+
+.vw-wx-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--font-color, #4c4948);
+  background: var(--text-bg-hover, rgba(0, 0, 0, .04));
+  border: 1px solid var(--light-grey, rgba(0, 0, 0, .1));
+  border-radius: 8px;
+  outline: none;
+}
+
+.vw-wx-input:focus {
+  border-color: #4a6cf7;
+}
+
+.vw-wx-input::placeholder {
+  color: var(--card-meta, #aaa);
+}
+
+.vw-wx-ok {
+  flex: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #4a6cf7;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.vw-wx-ok:hover {
+  opacity: .86;
+}
+
+/* ---- 深色模式 ---- */
+[data-theme="dark"] .vw-wx-now-temp {
+  color: #7b9bff;
+}
+
+[data-theme="dark"] .vw-wx-aq.aq-good  { background: #2b8f58; }
+[data-theme="dark"] .vw-wx-aq.aq-mid   { background: #b8860b; }
+[data-theme="dark"] .vw-wx-aq.aq-bad   { background: #b85c2c; }
+[data-theme="dark"] .vw-wx-aq.aq-worse { background: #a12222; }
+
+[data-theme="dark"] .vw-wx-switch,
+[data-theme="dark"] .vw-wx-ok {
+  color: #9db3ff;
+}
+
+[data-theme="dark"] .vw-wx-ok {
+  color: #fff;
+  background: #3d5bd9;
+}
+
+
+/* ===========================================================================
+   22. 深色模式切换的过渡动画（View Transitions API）
+   ---------------------------------------------------------------------------
+   配套 source/js/theme-transition.js。原理：
+
+     document.startViewTransition(fn) 会让浏览器给「切换前」和「切换后」
+     各拍一张快照，然后在两张快照之间做过渡。
+     默认过渡是交叉淡入淡出；这里把「新快照」用圆形把「旧快照」盖掉，
+     圆心和半径由 JS 按点击位置算出来，写成 --vw-tt-x / --vw-tt-y / --vw-tt-r。
+
+   两个关键点
+   ----------
+   1. 必须给新快照更高的 z-index，否则默认是旧的在上面淡出，
+      看不到「从按钮扩散」的效果。
+   2. 只在 html.vw-tt-active 期间生效 —— 不加这个作用域的话，
+      页面内其它用 View Transitions 的地方（比如以后加的图片切换）
+      也会被套上这层圆形动画。
+
+   缓动
+   ----
+   --expo-in 是参考站点那篇文章里给的 linear() 曲线（采样 16 个点逼近
+   指数缓动）。比 cubic-bezier 更贴近真实 expo 曲线，扩散开头慢、结尾稳。
+   =========================================================================== */
+
+:root {
+  --vw-tt-dur: 620ms;
+
+  /* 指数缓动：开头极慢，最后快速收尾 */
+  --expo-in: linear(
+    0 0%, 0.0085 31.26%, 0.0167 40.94%,
+    0.0289 48.86%, 0.0471 55.92%,
+    0.0717 61.99%, 0.1038 67.32%,
+    0.1443 72.07%, 0.1989 76.7%,
+    0.2659 80.89%, 0.3465 84.71%,
+    0.4419 88.22%, 0.554 91.48%,
+    0.6835 94.51%, 0.8316 97.34%, 1 100%
+  );
+}
+
+/* 过渡期间：旧快照在下、新快照在上 */
+:root.vw-tt-active::view-transition-old(root) {
+  z-index: 1;
+  animation: none;
+}
+
+:root.vw-tt-active::view-transition-new(root) {
+  z-index: 2;
+  animation: none;
+}
+
+/* ---- 模式一：从点击点扩散的圆 ---- */
+:root.vw-tt-active.vw-tt-circle::view-transition-new(root) {
+  clip-path: circle(0px at var(--vw-tt-x, 50%) var(--vw-tt-y, 50%));
+  animation: vw-circle-reveal var(--vw-tt-dur) var(--expo-in) forwards;
+  will-change: clip-path;
+}
+
+@keyframes vw-circle-reveal {
+  to {
+    clip-path: circle(var(--vw-tt-r, 150vmax) at var(--vw-tt-x, 50%) var(--vw-tt-y, 50%));
+  }
+}
+
+/* ---- 模式二：用图片/动图当遮罩 ----
+   把 theme-transition.js 里的 CONFIG.mode 改成 'mask' 并填 MASK_URL 即可。
+   原理和参考站点一样：mask-size 从 0 撑到覆盖全屏。 */
+:root.vw-tt-active.vw-tt-mask::view-transition-new(root) {
+  -webkit-mask: var(--vw-tt-mask-url) center / 0 no-repeat;
+  mask: var(--vw-tt-mask-url) center / 0 no-repeat;
+  animation: vw-mask-reveal var(--vw-tt-dur) var(--expo-in) forwards;
+  will-change: mask-size;
+}
+
+@keyframes vw-mask-reveal {
+  0%   { -webkit-mask-size: 0;    mask-size: 0; }
+  10%  { -webkit-mask-size: 50vmax; mask-size: 50vmax; }
+  90%  { -webkit-mask-size: 50vmax; mask-size: 50vmax; }
+  100% { -webkit-mask-size: 2000vmax; mask-size: 2000vmax; }
+}
+
+/* 过渡期间禁用大面积过渡动画，避免和快照动画抢 GPU */
+:root.vw-tt-active,
+:root.vw-tt-active body {
+  pointer-events: none;
+}
+
+/* 系统要求减少动态效果 -> 不做过渡（JS 那边也已经直接放行） */
+@media (prefers-reduced-motion: reduce) {
+  :root.vw-tt-active::view-transition-old(root),
+  :root.vw-tt-active::view-transition-new(root) {
+    animation: none !important;
+  }
+}
