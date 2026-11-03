@@ -538,3 +538,7 @@ inject:
     # 深色模式切换的圆形扩散过渡（View Transitions API）。
     # 不支持该 API 或开了「减少动态效果」时自动放行，主题照常瞬间切换。
     - '<script src="/js/theme-transition.js" defer></script>'
+    # 滚动入场 + 卡片跟随光斑。换页后挂 pjax:complete 重新扫描。
+    - '<script src="/js/scroll-fx.js" defer></script>'
+    # 文章页小增强：标题锚点复制链接 / 外链加 ↗ / 选中文字复制引用。
+    - '<script src="/js/post-enhance.js" defer></script>'
