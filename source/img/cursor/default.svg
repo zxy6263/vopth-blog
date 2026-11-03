@@ -1,0 +1,12 @@
+<!-- 默认箭头光标
+     形状取自 Lucide mouse-pointer-2（ISC 协议），改成实心 + 白色衬底。
+     白色衬底是必需的：站点的深色模式背景是 #0d0d0d，纯靛蓝箭头在上面几乎看不见。
+     两层叠放顺序：先画粗白描边，再画靛蓝填充。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <g transform="translate(2 2) scale(1.1667)">
+    <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"
+          fill="#4a6cf7" stroke="#ffffff" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"
+          fill="#4a6cf7" stroke="#4a6cf7" stroke-width="1.1" stroke-linejoin="round"/>
+  </g>
+</svg>

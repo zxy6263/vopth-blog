@@ -529,3 +529,6 @@ inject:
     #    只换一处浏览器会拒绝加载脚本（integrity 校验失败）。
     - '<script async src="https://statuspage.flashcat.cloud/status-page-widget/1.0.1/widget.js" integrity="sha384-UPNiiTsMdVbjrBGP/eTAW+OBpaWrL5bFa4L0IJkxrGelurQ+sELET6of/tdLcrOn" crossorigin="anonymous"></script>'
     - '<flashduty-status-widget page="https://statuspage.flashcat.cloud/vopth" type="banner" theme="auto" locale="zh" position="top"></flashduty-status-widget>'
+    # 鼠标点一下的粒子特效（canvas）。脚本挂在 document 上，PJAX 换页不用重init。
+    # 系统开了「减少动态效果」或纯触屏设备时自己不启用，见 source/js/click-firework.js。
+    - '<script src="/js/click-firework.js" defer></script>'

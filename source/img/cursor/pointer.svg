@@ -1,0 +1,21 @@
+<!-- 指针（可点击）光标
+     形状取自 Lucide hand（ISC 协议）。描边风格，白色衬底 + 靛蓝主色。
+     热点在食指尖：24 空间的 (12,2) -> 32 空间约 (16,4)。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <g transform="translate(2 2) scale(1.1667)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 白色衬底 -->
+    <g stroke="#ffffff" stroke-width="4.4">
+      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/>
+      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/>
+      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/>
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+    </g>
+    <!-- 靛蓝主色 -->
+    <g stroke="#4a6cf7" stroke-width="1.9">
+      <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/>
+      <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/>
+      <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/>
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+    </g>
+  </g>
+</svg>

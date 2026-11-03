@@ -1269,3 +1269,109 @@ h2[id="我的朋友们"] ~ .flink-list .flink-list-item:hover {
     transition: none;
   }
 }
+
+
+/* ===========================================================================
+   20. 自定义鼠标光标
+   ---------------------------------------------------------------------------
+   三张图在 source/img/cursor/，形状取自 Lucide（ISC 协议），
+   改成「白色衬底 + 靛蓝主色」两层 —— 深色模式背景是 #0d0d0d，
+   单色靛蓝箭头在上面几乎看不见，必须先垫一层白。
+
+   为什么用 PNG 而不是 SVG
+     第一版用的是 SVG，结果「滚动时偶尔闪出原生光标」。
+     原因是 Chrome 对 SVG 光标会在滚动/重绘时重新光栅化，
+     来不及的那一帧就回落到原生光标。PNG 只光栅化一次，没有这个问题。
+     SVG 原件保留在目录里（方便以后要改形状），但 CSS 只引 PNG。
+
+   热点坐标
+     cursor: url(x.png) 7 7, auto  —— 那个 7 7 是热点（箭头尖）。
+     不写的话浏览器按 (0,0) 算，箭头尖和实际点击点会错开十来个像素，
+     点链接时会「看着点到了其实没点到」。
+
+   为什么要在 html * 上做兜底
+     cursor 是继承属性，但有元素会被别的规则显式设成原生值
+     （主题给 .social-icon / .vopth-music-hint 这类 span、div 写了 cursor: pointer）。
+     继承在那里就断了，滚动时鼠标扫过这些元素就露原生光标。
+     所以先用 html * 把所有元素压成自定义默认值，再单独给可点击/可选中的
+     元素加 !important 覆盖回来。
+
+   触屏设备
+     @media (hover: none) 里把三个变量改回原生关键字。
+   =========================================================================== */
+
+:root {
+  --cursor-default: url("/img/cursor/default.png") 7 7, auto;
+  --cursor-pointer: url("/img/cursor/pointer.png") 16 4, pointer;
+  --cursor-text: url("/img/cursor/text.png") 16 16, text;
+}
+
+/* 1) 全站兜底：任何元素都不许落回原生光标 */
+html,
+body,
+body * {
+  cursor: var(--cursor-default);
+}
+
+/* 2) 可点击的元素。
+      选择器列得宽一点，除了标准标签还要覆盖主题里那些
+      用 span / div / i 伪装成按钮的地方（搜索图标、音乐提示、侧边栏按钮）。
+      !important 是为了压过主题自己的 cursor: pointer。 */
+a,
+button,
+summary,
+label[for],
+select,
+[role="button"],
+[onclick],
+[tabindex]:not([tabindex="-1"]),
+.has-cursor-pointer,
+.social-icon,
+.site-page,
+.site-name,
+.fa-fw,
+.flink-list-item,
+#rightside > div > a,
+#rightside > div > button,
+#pagination .page-number,
+#pagination .extend,
+.vopth-music-toggle,
+.vopth-music-hint,
+.vopth-music-panel button,
+.post-edit-button,
+.code-copy,
+#nav .menus_item > a {
+  cursor: var(--cursor-pointer) !important;
+}
+
+/* 3) 可选中的文本。只放行表单控件和正文段落，
+      不对 span 通配 —— 否则 <a><span>文字</span></a> 里那个 span
+      会显示 I 形光标，与「可点击」的语义冲突。 */
+input,
+textarea,
+code,
+kbd,
+pre,
+#article-container p,
+#article-container li,
+.article-entry p,
+.flink-desc {
+  cursor: var(--cursor-text) !important;
+}
+
+/* 4) 拖动/可调大小的场合保留系统光标，别硬套 */
+[draggable="true"],
+.aplayer-bar-wrap,
+.aplayer-thumb {
+  cursor: auto !important;
+}
+
+/* 5) 触屏设备回落到原生光标 */
+@media (hover: none) {
+  :root {
+    --cursor-default: auto;
+    --cursor-pointer: pointer;
+    --cursor-text: text;
+  }
+}
+
