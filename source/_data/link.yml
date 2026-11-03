@@ -3,23 +3,34 @@
   link_list:
     - name: Hexo
       link: https://hexo.io
-      avatar: /img/cover-1.svg
+      # 官方 logo：https://hexo.io/logo.svg（512×512，方形）
+      avatar: /img/logo-hexo.svg
       descr: 快速、简洁且高效的博客框架
     - name: Butterfly
       link: https://butterfly.js.org/
-      avatar: /img/cover-3.svg
+      # 主题自带图标 node_modules/hexo-theme-butterfly/source/img/butterfly-icon.png
+      # 原图 1024×1024，缩到 256 存本地
+      avatar: /img/logo-butterfly.png
       descr: 本站使用的主题，文档写得很清楚
     - name: Cloudflare Pages
       link: https://pages.cloudflare.com/
-      avatar: /img/cover-2.svg
+      # 官网 favicon（橙色方块 + 白云），ICO 转 PNG 256×256
+      # 不用 logo-cloudflare-dark.svg —— 那个是 109×40.5 的横排 wordmark，
+      # 塞进 60×60 的方头像里会被 object-fit: cover 裁得只剩一个字母
+      avatar: /img/logo-cloudflare.png
       descr: 免费静态托管，本站就跑在上面
 
 - class_name: 我的朋友们
-  class_desc: 位置给你留着，发封邮件就能加上
+  class_desc: 挚友
   # 注意：link_list 不能留空，否则主题模板遍历 null 会报错
-  link_list: []
-  # 加友链时把上面那行 [] 换成下面这种结构：
-  # link_list:
+  link_list:
+    - name: 瓜瓜蛋糕糕
+      # 用抖音个人主页的规范地址，不用 v.douyin.com 的分享短链 —— 短链会过期
+      link: https://www.douyin.com/user/MS4wLjABAAAACT5AFh-ui7un95AMKO3UzFUEPoXIn716bex2aRleBV21mHlM7SpvL-4V3x4J8d13
+      # 头像是从抖音 CDN 下到本地的，不是热链 —— 抖音的图有 Referer 校验，外站直接引用会 403
+      avatar: /img/friend-guagua.jpg
+      descr: 抖音号 KTFLDZ · 创伤会静静活在心底
+  # 再加人时按上面这段结构往后追加即可：
   #   - name: 对方的名字
   #     link: https://example.com
   #     avatar: https://example.com/avatar.png

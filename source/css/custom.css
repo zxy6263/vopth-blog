@@ -1221,3 +1221,51 @@
     transition: none;
   }
 }
+
+/* ===========================================================================
+   19. 友链卡片外框
+   ---------------------------------------------------------------------------
+   只作用于「我的朋友们」这一组，不影响上面「建站路上离不开的」。
+
+   为什么用兄弟组合器而不是加 class：
+     主题把每组友链渲染成 h2 + .flink-desc + .flink-list 三个平级元素，
+     没有包一层的 wrapper，所以只能靠 `h2[id="我的朋友们"] ~ .flink-list`
+     定位到这一组的容器。用属性选择器而不是 `#我的朋友们`，
+     是因为中文 ID 在 CSS 里虽然合法，但属性写法在压缩器和旧引擎上更稳。
+
+   为什么边框能直接加在 .flink-list-item 上：
+     主题已经给它设了 overflow: hidden 和 8px 圆角，边框会被自动裁成圆角，
+     不需要额外包一层，也不用处理子元素的越界。
+
+   为什么不加 background：
+     .flink-list-item:hover 用 ::before 铺一层 --text-bg-hover（z-index: -1）。
+     如果这里给卡片设不透明底色，那层悬停色会被压在下面看不见。
+   =========================================================================== */
+
+h2[id="我的朋友们"] ~ .flink-list .flink-list-item {
+  box-sizing: border-box;
+  border: 1px solid rgba(74, 108, 247, 0.22);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+h2[id="我的朋友们"] ~ .flink-list .flink-list-item:hover {
+  border-color: rgba(74, 108, 247, 0.55);
+  box-shadow: 0 6px 18px rgba(74, 108, 247, 0.16);
+}
+
+/* 深色模式下同样的边框会太亮，把透明度再压低一点 */
+[data-theme="dark"] h2[id="我的朋友们"] ~ .flink-list .flink-list-item {
+  border-color: rgba(122, 150, 255, 0.26);
+}
+
+[data-theme="dark"] h2[id="我的朋友们"] ~ .flink-list .flink-list-item:hover {
+  border-color: rgba(122, 150, 255, 0.6);
+  box-shadow: 0 6px 18px rgba(122, 150, 255, 0.18);
+}
+
+/* 开了「减少动态效果」就不做过渡 */
+@media (prefers-reduced-motion: reduce) {
+  h2[id="我的朋友们"] ~ .flink-list .flink-list-item {
+    transition: none;
+  }
+}
