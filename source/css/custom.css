@@ -84,26 +84,197 @@
   gap: 10px;
 }
 
+/* 液态玻璃按钮（Liquid Glass）
+ *
+ * 和毛玻璃的区别：
+ *   毛玻璃   只要「模糊 + 半透明」，静态、平、没有厚度感
+ *   液态玻璃 要「折射 + 镜面高光 + 菲涅尔边缘 + 色散 + 弹性形变」
+ *
+ * 这份 CSS 实现了其中四样，第五样（真折射）有硬约束：
+ *
+ *   ① 半透明 + 冷调偏移 ......... 做了（linear-gradient 带一点蓝）
+ *   ② 镜面高光 / 菲涅尔边缘 ..... 做了（inset 多层 box-shadow）
+ *   ③ 色散（RGB 边缘分离）...... 用双层描边近似（青 + 紫）
+ *   ④ 弹性形变 ............... 做了（spring 曲线 + scale 回弹）
+ *   ⑤ 真折射（透镜位移）....... ⚠️ 只能 Chromium + 背后得有东西
+ *
+ * 关于⑤：折射是把背后的画面「扭」一下。这些按钮背后是 .ph-card
+ * （纯白），扭白色还是白色 —— 所以就算挂上 SVG 位移滤镜也看不到。
+ * 真正能看出折射的位置是本页 banner 插画上方（导航栏那一带）。
+ * 想在那里试，把下面 .vw-liquid-lens 的注释打开，并在页面里放一个带
+ * id="vw-liquid-lens" 的 <filter>。
+ */
 .ph-links a {
+  position: relative;
+  isolation: isolate;              /* 让内部的 ::after 高光不越界到外面 */
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 14px;
+  padding: 6px 15px;
   font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
   border-radius: 999px;
-  color: var(--font-color);
-  background: var(--text-bg-hover);
-  transition: all 0.3s;
+  overflow: hidden;                /* 镜面扫光要能被圆角裁掉 */
+
+  color: #3a5bd9;
+
+  /* ① 半透明底 + 冷调（Apple 那种偏蓝的白） */
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(226, 236, 255, 0.5)
+  );
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+
+  /* ② 玻璃边界 + ③ 色散近似
+   *    外层紫、内层青的极淡双层描边，模拟光在玻璃边缘的分光。
+   *    真色散要逐像素做，这里只是在厚度上给一点「边缘有颜色」的暗示。 */
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    /* 镜面：顶部最亮，模拟光源在上方 */
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    /* 菲涅尔：左右边缘也各有一条，越靠边越亮 */
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    /* 色散暗示：内圈的青 / 外圈紫 */
+    inset 0 0 0 1px rgba(120, 210, 255, 0.16),
+    0 0 0 1px rgba(150, 110, 255, 0.1),
+    /* 玻璃厚度带来的外投影 */
+    0 4px 14px rgba(74, 108, 247, 0.16),
+    0 1px 3px rgba(16, 22, 40, 0.07);
+
+  /* ④ 弹性：spring 曲线，越过目标再回来 */
+  transition:
+    color 0.28s ease,
+    background 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ④ 悬停：上浮 + 轻微放大（回弹感） */
 .ph-links a:hover {
   color: #fff;
-  background: #4a6cf7;
-  transform: translateY(-2px);
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.92),
+    rgba(110, 92, 247, 0.88)
+  );
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 22px rgba(74, 108, 247, 0.32),
+    0 2px 6px rgba(16, 22, 40, 0.1);
+  transform: translateY(-2px) scale(1.035);
+}
+
+/* 按下：缩回去，比 hover 更快（0.12s），有「压下去」的手感 */
+.ph-links a:active {
+  transform: translateY(0) scale(0.955);
+  transition-duration: 0.12s;
+}
+
+/* ④ 镜面扫光：hover 时一道高光从左边扫到右边
+ *   这是液态玻璃最容易被感知的一个细节 —— 静态图看不出来，动起来像玻璃在转。
+ *   overflow: hidden + border-radius: inherit 保证光被圆角裁掉。 */
+.ph-links a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.85) 46%,
+    rgba(255, 255, 255, 0.25) 54%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+.ph-links a:hover::after {
+  opacity: 1;
+  animation: vw-glass-sheen 0.72s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+@keyframes vw-glass-sheen {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(120%); }
 }
 
 .ph-links a i {
   font-size: 0.95em;
+  position: relative;
+  z-index: 1;                 /* 压在扫光之上 */
+}
+
+/* 文字也要压在扫光之上 */
+.ph-links a {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* 深色模式：白玻璃换成黑玻璃
+ * 上高光从 1.0 降到 0.14 —— 在深色底上全亮会像霓虹管 */
+[data-theme="dark"] .ph-links a {
+  color: #a8bdff;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(120, 150, 255, 0.06)
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 rgba(255, 255, 255, 0.07),
+    inset -1px 0 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(120, 210, 255, 0.08),
+    0 0 0 1px rgba(150, 110, 255, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.32);
+  text-shadow: none;
+}
+
+[data-theme="dark"] .ph-links a:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 22px rgba(74, 108, 247, 0.36);
+}
+
+[data-theme="dark"] .ph-links a::after {
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.42) 46%,
+    rgba(255, 255, 255, 0.12) 54%,
+    transparent 66%
+  );
+}
+
+/* 降级 */
+@media (prefers-reduced-motion: reduce) {
+  .ph-links a,
+  .ph-links a:hover,
+  .ph-links a:active {
+    transition: color 0.25s, background 0.25s;
+    transform: none;
+  }
+
+  .ph-links a:hover::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 @media screen and (max-width: 768px) {
@@ -255,13 +426,33 @@
  */
 .about-hero {
   display: flex;
-  gap: 18px;
+  gap: 22px;
   align-items: center;
-  padding: 16px 22px;
+  padding: 22px 24px;
   margin-bottom: 4px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(74, 108, 247, 0.1), rgba(124, 92, 255, 0.1));
-  border: 1px solid rgba(74, 108, 247, 0.18);
+  border-radius: 14px;
+  /* 原来是一整块淡紫渐变，铺满之后发灰、显脏。
+     改成「白底 + 左上角一团极淡的主色光」：
+     底色干净，光只用来提示方向，不参与整体色调。 */
+  background-color: var(--card-bg, #fff);
+  background-image: radial-gradient(
+    120% 140% at 8% 0%,
+    rgba(74, 108, 247, 0.1),
+    rgba(74, 108, 247, 0) 62%
+  );
+  border: 1px solid rgba(74, 108, 247, 0.16);
+  box-shadow: 0 1px 2px rgba(16, 22, 40, 0.03);
+}
+
+[data-theme="dark"] .about-hero {
+  background-color: rgba(255, 255, 255, 0.03);
+  background-image: radial-gradient(
+    120% 140% at 8% 0%,
+    rgba(110, 145, 255, 0.14),
+    rgba(110, 145, 255, 0) 62%
+  );
+  border-color: rgba(110, 145, 255, 0.2);
+  box-shadow: none;
 }
 
 /* 卡片是页面第一个元素时往上提：50px 上内边距 -> 视觉上约 24px */
@@ -290,24 +481,50 @@
 
 .about-avatar {
   flex: 0 0 auto;
-  width: 108px;
-  height: 108px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 5px rgba(74, 108, 247, 0.15);
+  width: 104px;
+  height: 104px;
+  border-radius: 50% !important;
+  /* 头像原图是 400×400 白底 JPEG。
+     fill 会把非正方形的图拉变形，cover 只裁不拉。 */
+  object-fit: cover;
+  box-shadow:
+    0 0 0 3px rgba(74, 108, 247, 0.4),
+    0 0 0 7px rgba(74, 108, 247, 0.08);
 }
 
 .about-name {
-  margin: 0 0 2px;
-  font-size: 1.6rem;
+  margin: 0 0 3px;
+  font-size: 1.75rem;
+  font-weight: 700;
   /* 主题给 h2 的 line-height 是 2，套在这个名字上实测有 51px 高 —— 白占一行 */
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   color: var(--font-color);
 }
 
 .about-tagline {
-  margin: 0 0 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 9px;
+  font-size: 0.88rem;
   font-weight: 600;
+  line-height: 1.5;
   color: #4a6cf7;
+}
+
+/* 标语前的小圆点：把「我是谁的合作方」这种自我定位和下面的正文分开 */
+.about-tagline::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+[data-theme="dark"] .about-tagline {
+  color: #9db3ff;
 }
 
 .about-desc {
@@ -323,23 +540,55 @@
   gap: 8px;
 }
 
+/* 主次分明：GitHub 是实心（最可能被点的那个），其余是描边。
+   原来 4 个都是实心药丸，权重一样，既抢眼又没有指向性。 */
+
+
 .about-links a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  font-size: 0.86rem;
+  padding: 5px 13px;
+  font-size: 0.84rem;
+  line-height: 1.4;
   border-radius: 999px;
-  color: var(--font-color);
-  background: var(--text-bg-hover);
-  transition: all 0.3s;
+  color: #4a6cf7;
+  background: transparent;
+  border: 1px solid rgba(74, 108, 247, 0.28);
+  transition: color 0.22s, background 0.22s, border-color 0.22s, transform 0.22s;
 }
 
 .about-links a:hover {
   color: #fff;
   background: #4a6cf7;
-  transform: translateY(-2px);
+  border-color: #4a6cf7;
+  transform: translateY(-1px);
 }
+
+.about-links a.about-link-primary {
+  color: #fff;
+  background: #4a6cf7;
+  border-color: #4a6cf7;
+}
+
+.about-links a.about-link-primary:hover {
+  background: #3d5bd9;
+  border-color: #3d5bd9;
+}
+
+[data-theme="dark"] .about-links a {
+  color: #9db3ff;
+  border-color: rgba(110, 145, 255, 0.32);
+}
+
+[data-theme="dark"] .about-links a:hover,
+[data-theme="dark"] .about-links a.about-link-primary {
+  color: #fff;
+  background: #3d5bd9;
+  border-color: #3d5bd9;
+}
+
+
 
 /* 技能点那一段已经从关于页删掉了（站主要求），
    原来这里的 .about-skills / .about-skill 规则一并清掉，不留死代码。 */
@@ -832,90 +1081,271 @@
   line-height: 1;
 }
 
-/* ---------------------------------------------------------------- 悬浮按钮 */
+/* ---------------------------------------------------------------- 悬浮按钮
+ *
+ * 清透玻璃（Clear Liquid Glass）。
+ *
+ * 和上一版「主色玻璃」的区别：
+ *   上一版  rgba(88,122,255,.92)  ← 有颜色、几乎不透明，像一颗蓝珠子
+ *   这一版  rgba(255,255,255,.22) ← 几乎无色、真的能透过去
+ *
+ * 清透玻璃有一个必须先解决的问题：
+ *   玻璃一透，白色图标就消失在白页面上了。
+ *   所以图标从 #fff 改成深靛蓝 #3a5bd9 —— 苹果的 clear glass 也是这个做法：
+ *   玻璃是淡的，前景（图标/文字）是深色的。
+ *
+ * 第二个问题：按钮会浮在深浅不一的背景上（banner 插画 / 白卡片 / 深色模式）。
+ *   深色文字压在深色背景上会读不清。
+ *   解法是在 backdrop-filter 里加 brightness(1.15) ——
+ *   把「背后的东西」提亮，而不是把玻璃本身加白。
+ *   这样玻璃仍然是透的，但文字始终有足够的对比。
+ *
+ * 保留的一点点主色：
+ *   .is-active（正在播放）时给一层 rgba(74,108,247,.28)，
+ *   让它和「没在播」有明确区别 —— 否则一颗透明球有没有开起来看不出来。
+ */
 .vopth-music-toggle {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 54px;
+  height: 54px;
   padding: 0;
   border: 0;
   border-radius: 50%;
+  overflow: hidden;
   cursor: pointer;
-  color: #fff;
-  background: linear-gradient(135deg, #4a6cf7, #7b5cf7);
-  box-shadow: 0 6px 18px rgba(74, 108, 247, 0.42);
-  transition: transform 0.2s, box-shadow 0.2s;
+
+  /* 清透：几乎没有颜色，只是微微一层乳白 */
+  color: #3a5bd9;
+
+  background: rgba(255, 255, 255, 0.22);
+  /* brightness 是让「清透玻璃上的深色图标」可读的关键 */
+  backdrop-filter: blur(16px) saturate(170%) brightness(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(170%) brightness(1.15);
+
+  /* 玻璃轮廓：比上一版更亮，因为底色已经很淡了，
+     再不给一条明显的边，整个按钮会「散掉」 */
+  border: 1.5px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    /* 镜面：左上最亮 */
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+    inset 1px 0 1px rgba(255, 255, 255, 0.45),
+    /* 反射：右下 */
+    inset 0 -1.5px 1px rgba(255, 255, 255, 0.28),
+    inset -1px 0 1px rgba(255, 255, 255, 0.35),
+    /* 玻璃厚度带来的投影，用中性色而不是蓝 —— 透明玻璃不该有蓝影 */
+    0 8px 22px rgba(40, 52, 90, 0.18),
+    0 2px 6px rgba(16, 22, 40, 0.1);
+
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease,
+    background 0.3s ease,
+    color 0.3s ease;
 }
 
 .vopth-music-toggle:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 10px 24px rgba(74, 108, 247, 0.52);
+  transform: translateY(-3px) scale(1.06);
+  background: rgba(255, 255, 255, 0.34);
+  color: #2f4bc4;
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 1px 0 1px rgba(255, 255, 255, 0.55),
+    inset 0 -1.5px 1px rgba(255, 255, 255, 0.35),
+    inset -1px 0 1px rgba(255, 255, 255, 0.45),
+    0 16px 34px rgba(40, 52, 90, 0.24),
+    0 3px 10px rgba(16, 22, 40, 0.12);
+}
+
+.vopth-music-toggle:active {
+  transform: translateY(0) scale(0.93);
+  transition-duration: 0.12s;
+}
+
+/* 镜面扫光：清透玻璃上比在色玻璃上更好看，白线会像一道反光掠过 */
+.vopth-music-toggle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.85) 46%,
+    rgba(255, 255, 255, 0.25) 55%,
+    transparent 68%
+  );
+  opacity: 0;
+  transform: translateX(-130%);
+}
+
+.vopth-music-toggle:hover::after {
+  opacity: 1;
+  animation: vw-music-sheen 0.7s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+@keyframes vw-music-sheen {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
+}
+
+/* 图标：深色 + 轻微白色描边阴影，压在清透玻璃上
+ * 这里反过来 —— 不是给亮底加暗影，而是给暗色图标加一层柔白，
+ * 保证它在深色背景（banner 暗部 / 深色模式）也有轮廓。 */
+.vopth-music-toggle i,
+.vopth-music-toggle svg {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0.5px 0.5px rgba(255, 255, 255, 0.55));
 }
 
 .vopth-music-toggle:focus-visible {
   outline: 2px solid #4a6cf7;
-  outline-offset: 3px;
+  outline-offset: 4px;
 }
 
-/* 打开状态下悬浮按钮高亮一下（原来是让唱片转，但图标已经换成音符了） */
+/* 正在播放：给一层很淡的主色，让「开着」这件事看得出来 */
 .vopth-music-toggle.is-active {
-  box-shadow: 0 6px 22px rgba(74, 108, 247, 0.66), 0 0 0 3px rgba(74, 108, 247, 0.22);
+  color: #2f4bc4;
+  background: rgba(74, 108, 247, 0.28);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 1px 0 1px rgba(255, 255, 255, 0.5),
+    inset 0 -1.5px 1px rgba(255, 255, 255, 0.3),
+    inset -1px 0 1px rgba(255, 255, 255, 0.4),
+    0 8px 24px rgba(74, 108, 247, 0.32),
+    0 0 0 4px rgba(74, 108, 247, 0.14);
 }
 
 /* 首次来访的提示气泡：光看一个圆按钮不知道是干什么的，所以飘一句说明。
-   点过之后写 localStorage，以后不再出现。 */
+   点过之后写 localStorage，以后不再出现。
+
+   同样做成液态玻璃 —— 气泡和按钮是同一套材质，看起来才像一体的控件，
+   而不是「一个玻璃球旁边贴了一张蓝色标签」。 */
 .vopth-music-hint {
   position: absolute;
-  left: 60px;
-  bottom: 13px;
-  padding: 6px 12px;
+  left: 66px;                   /* 按钮从 48 变成 54，这里跟着右移 */
+  bottom: 14px;
+  padding: 7px 14px;
   border-radius: 999px;
   font-size: 0.8rem;
   line-height: 1.4;
+  font-weight: 500;
   white-space: nowrap;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(135deg, #4a6cf7, #7b5cf7);
-  box-shadow: 0 4px 14px rgba(74, 108, 247, 0.42);
-  animation: vopth-music-hint-in 0.45s ease both 0.8s;
+
+  background: linear-gradient(
+    145deg,
+    rgba(88, 122, 255, 0.9),
+    rgba(126, 96, 250, 0.84)
+  );
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.14),
+    0 6px 18px rgba(74, 108, 247, 0.34),
+    0 2px 5px rgba(16, 22, 40, 0.1);
+  text-shadow: 0 1px 1px rgba(30, 24, 90, 0.28);
+
+  animation: vopth-music-hint-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both 0.8s;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
-/* 指向悬浮按钮的小三角 */
+.vopth-music-hint:hover {
+  background: linear-gradient(
+    145deg,
+    rgba(100, 132, 255, 0.95),
+    rgba(138, 108, 252, 0.9)
+  );
+}
+
+/* 指向悬浮按钮的小三角
+ * 原来是实心 #4a6cf7，现在底是半透明的，三角也得跟着半透明，
+ * 否则会在气泡和按钮之间露出一块实心色。 */
 .vopth-music-hint::before {
   content: '';
   position: absolute;
-  left: -4px;
+  left: -5px;
   top: 50%;
-  width: 8px;
-  height: 8px;
-  margin-top: -4px;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
   transform: rotate(45deg);
-  background: #4a6cf7;
+  background: rgba(95, 126, 255, 0.9);
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 1px;
 }
 
 @keyframes vopth-music-hint-in {
-  from { opacity: 0; transform: translateX(-6px); }
+  from { opacity: 0; transform: translateX(-8px) scale(0.94); }
   to   { opacity: 1; transform: none; }
 }
 
-/* ---------------------------------------------------------------- 面板 */
+/* ---------------------------------------------------------------- 面板
+ *
+ * 这块是整套音乐控件里【唯一能真正看出 backdrop-filter 效果】的地方：
+ * 它 330px 宽，展开后盖在文章正文上 —— 背后的文字会被糊成一片磨砂，
+ * 那就是苹果那种「玻璃板浮在内容上」的观感。
+ *
+ * 所以底板从 var(--card-bg)（不透明卡片色）换成半透明玻璃：
+ * 白色降到 62%，让底下的文字隐约透出一点轮廓，
+ * 但又不至于影响面板里自己的内容阅读。
+ */
 .vopth-music-panel {
   position: absolute;
   left: 0;
-  bottom: 60px;                 /* 悬浮按钮上方 */
+  bottom: 66px;                 /* 按钮 54 + 12 间距 */
   width: 330px;
   overflow: hidden;
-  border-radius: 12px;
-  background: var(--card-bg);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.26);
+  border-radius: 16px;
+
+  /* 半透明玻璃底 */
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    0 18px 44px rgba(16, 22, 40, 0.22),
+    0 4px 12px rgba(16, 22, 40, 0.1);
+
   /* 收起状态：透明 + 不可见 + 稍微下沉，展开时回到原位 */
   opacity: 0;
   visibility: hidden;
-  transform: translateY(10px) scale(0.96);
+  transform: translateY(12px) scale(0.95);
   transform-origin: left bottom;
-  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+  transition:
+    opacity 0.26s ease,
+    transform 0.34s cubic-bezier(0.34, 1.4, 0.64, 1),
+    visibility 0.26s;
+}
+
+/* 深色模式：黑玻璃
+ * 不透明度给到 0.72 而不是 0.62 —— 深底上太透会让面板里的文字
+ * 和背后的文章内容混在一起，读不清。 */
+[data-theme="dark"] .vopth-music-panel {
+  background: rgba(24, 24, 30, 0.72);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 44px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 不支持 backdrop-filter 的浏览器：退回不透明底，保证能读 */
+@supports not (backdrop-filter: blur(1px)) {
+  .vopth-music-panel {
+    background: var(--card-bg);
+  }
 }
 
 .vopth-music[data-state='open'] .vopth-music-panel {
@@ -1941,5 +2371,271 @@ pre,
 @media (hover: none) {
   .vw-quote-btn {
     display: none;
+  }
+}
+
+
+/* ===========================================================================
+   25. 关于页关键词行
+   ---------------------------------------------------------------------------
+   目的：一眼看出这个人在搞什么，不用读完三段话。
+
+   用胶囊标签而不是 <ul>：这是「关键词」，不是「列表」，不该有项目符号。
+   放在 hero 卡片【外面】而不是里面 —— 它描述的是整页，不属于那张名片。
+   =========================================================================== */
+
+/* 关键词行的引导语 */
+.about-keywords-label {
+  margin: 20px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--card-meta);
+  opacity: 0.85;
+}
+
+/* 标签改成 <a> 之后，cursor 要变回手型（站点的自定义光标是 body * 兜底，
+   会被默认箭头覆盖，所以这里显式声明 pointer 的等价处理）。
+   实际上自定义光标在 a 上已经有规则，这里只补「放大 + 下划线去掉」。 */
+.about-keywords a {
+  text-decoration: none;
+}
+
+.about-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 14px 0 22px;
+  padding: 0;
+}
+
+.about-keywords a {
+  display: inline-block;
+  padding: 3px 11px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #4a6cf7;
+  background: rgba(74, 108, 247, 0.09);
+  border: 1px solid rgba(74, 108, 247, 0.16);
+  border-radius: 999px;
+  transition: background 0.25s, color 0.25s;
+}
+
+.about-keywords a:hover {
+  color: #fff;
+  background: #4a6cf7;
+}
+
+[data-theme="dark"] .about-keywords a {
+  color: #9db3ff;
+  background: rgba(110, 145, 255, 0.12);
+  border-color: rgba(110, 145, 255, 0.22);
+}
+
+/* 关于页的「正在做的 / 玩的游戏 / 已经在吃灰的」是 <p><strong>...</strong></p>，
+   主题给 p 的下边距 16px 偏大，收紧成小标题的间距感。
+   用 :only-child 精确命中「整段只有一个 strong」的情况，
+   不会影响正文里夹在句子中间的加粗。 */
+#article-container p > strong:only-child {
+  display: inline-block;
+}
+
+
+/* ===========================================================================
+   26. 首页 banner 的「向下滚动」提示
+   ---------------------------------------------------------------------------
+   修之前实测到的状态（Chrome，1280×808）：
+
+     #scroll-down          position: absolute  bottom: 10px  text-align: start
+     #scroll-down > i      width: 1251px（被撑成全宽）  display: inline-block
+                           color: #eee  font-size: 20px
+                           opacity: 0.400696   ← 主题在跑 0.4 ↔ 1 的呼吸动画
+                           transform: matrix(1,0,0,1,0,-0.0185711)  ← 同时在浮动
+
+   所以箭头确实画出来了，但三个问题叠在一起等于看不见：
+     1. text-align: start + 全宽的 <i> => 字形贴在屏幕最左边 x≈0
+     2. 左下角正好是音乐悬浮按钮（left: 20px）的位置，视觉上被抢走
+     3. 呼吸动画压到 40% 不透明度时，#eee 压在高饱和的红叶插画上几乎消失
+
+   处理：居中 + 放大 + 提高对比 + 换成「位移为主、透明度只轻微起伏」的动画。
+   为什么换掉主题那个动画：
+     它把透明度当主要手段，而这张插画本身就明暗杂乱，
+     透明度一低就彻底糊掉。改成位移为主（上下来回），
+     透明度只在 1 ↔ 0.62 之间小幅度变化 —— 既看得出在动，又不会消失。
+   =========================================================================== */
+
+#page-header.full_page #scroll-down {
+  /* 主题给的 start 会让字形跑到最左边；这里拉回中间 */
+  text-align: center;
+  z-index: 2;                 /* 要压在 ::before 遮罩之上 */
+}
+
+#page-header.full_page #scroll-down i {
+  display: block;
+  width: 100%;
+  text-align: center;         /* <i> 是全宽的，字形得靠它自己居中 */
+  font-size: 28px;
+  line-height: 1.4;
+  color: #fff;
+  /* 压在插画上要有描边感，否则边缘和背景糊在一起 */
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  transition: color 0.25s, transform 0.25s;
+}
+
+/* 用位移当主手段。选择器比主题的 .scroll-down-effects 多两个 id + 一个类，
+   优先级足够覆盖掉它那条动画。 */
+@keyframes vopth-scroll-bounce {
+  0%, 100% { transform: translateY(0);    opacity: 1; }
+  50%      { transform: translateY(8px);  opacity: 0.62; }
+}
+
+#page-header.full_page #scroll-down i.scroll-down-effects {
+  animation: vopth-scroll-bounce 1.9s ease-in-out infinite;
+}
+
+/* 鼠标移到箭头附近时停一下，方便点 */
+#page-header.full_page #scroll-down:hover i {
+  color: #fff;
+  animation-play-state: paused;
+}
+
+/* 手机上箭头再小一点，否则离底边太挤 */
+@media screen and (max-width: 768px) {
+  #page-header.full_page #scroll-down i {
+    font-size: 24px;
+  }
+}
+
+/* 系统要求减少动态效果：不浮动 */
+@media (prefers-reduced-motion: reduce) {
+  #page-header.full_page #scroll-down i.scroll-down-effects {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+
+/* ===========================================================================
+   27. 液态玻璃导航栏（真折射）
+   ---------------------------------------------------------------------------
+   做法来源：https://html-in-canvas.dev/liquid-glass-effect/
+   核心技术：把 SVG 的 feDisplacementMap 写进 backdrop-filter，
+             让玻璃变成一块「透镜」，把背后的画面按噪声场推开。
+
+   ⚠️ 三个必须知道的前提
+   ----------------------
+   1. url() 写进 backdrop-filter 是 Chromium 独占。
+      Safari / Firefox 会忽略位移、退回普通 blur —— 所以下面用
+      @supports (backdrop-filter: url(#x)) 包起来，
+      检测不通过的浏览器拿到的是前面那条普通的 blur(7px)，不会坏。
+
+   2. 位移是真·逐像素运算。导航栏是 1251×60 ≈ 7.5 万像素，
+      滚动时每帧都要重算 —— 低端设备可能掉帧。实测不够流畅就把
+      scale 调小（位移幅度），不要调 baseFrequency（那是形状）。
+
+   3. 折射只在「背后有内容」时才看得见。所以：
+        顶部（banner 上）→ 背后是插画 → 效果最明显
+        滚动之后        → 背后是文章内容，但已经被 70% 白 + blur 盖住了
+                          折射几乎看不出来（不影响可读性，也不会坏）
+
+
+   为什么顶部单独给一组参数
+   ------------------------
+   顶部时导航栏是 background: rgba(0,0,0,0)（全透明），
+   banner 完全通透。这时候如果直接上 blur(7px)，会把 banner 顶部
+   那一条糊掉 —— 那是设计上刻意保留的通透感。
+
+   所以顶部用很轻的 blur(1.5px)，主要靠位移出效果；
+   滚动之后沿用主题原本的 blur(7px)，只在上面叠位移。
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 顶部状态：透明 + 轻折射
+ * 选择器用 .full_page:not(.nav-fixed) —— 只在首页 banner 顶部生效，
+ * 内页的 banner 不参与（那边是渐变 SVG，没有折射的意义）。
+ * ------------------------------------------------------------------------- */
+#page-header.full_page:not(.nav-fixed) #nav {
+  /* 兜底：不支持 url() 滤镜的浏览器只拿到一条极轻的模糊 */
+  -webkit-backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px);
+}
+
+@supports (backdrop-filter: url(#vw-liquid-lens)) {
+  #page-header.full_page:not(.nav-fixed) #nav {
+    -webkit-backdrop-filter: blur(1.5px) url(#vw-liquid-lens);
+    backdrop-filter: blur(1.5px) url(#vw-liquid-lens);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 滚动后：沿用主题的白底 + blur(7px)，只叠加位移
+ * 优先级要压过主题的 #page-header.nav-fixed #nav，
+ * 所以这里把 !important 也用上了 —— backdrop-filter 是单值属性，
+ * 一旦被主题的 blur(7px) 覆盖，url() 就整个丢了。
+ * ------------------------------------------------------------------------- */
+#page-header.nav-fixed #nav {
+  -webkit-backdrop-filter: blur(7px) !important;
+  backdrop-filter: blur(7px) !important;
+}
+
+@supports (backdrop-filter: url(#vw-liquid-lens)) {
+  #page-header.nav-fixed #nav {
+    -webkit-backdrop-filter: blur(7px) url(#vw-liquid-lens) !important;
+    backdrop-filter: blur(7px) url(#vw-liquid-lens) !important;
+  }
+
+  /* 深色模式下位移稍微收敛一点：
+     深底上的高对比边缘被推开时更容易显得「渲染出错」 */
+  [data-theme="dark"] #page-header.nav-fixed #nav {
+    -webkit-backdrop-filter: blur(7px) url(#vw-liquid-lens-soft) !important;
+    backdrop-filter: blur(7px) url(#vw-liquid-lens-soft) !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 导航栏本身的一点点「玻璃边缘」
+ * 顶部时是透明的，没有边框；滚动后主题已经给了 box-shadow，
+ * 这里只补一条极细的顶部亮线，强化「玻璃有厚度」的感觉。
+ * ------------------------------------------------------------------------- */
+#page-header.nav-fixed #nav::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55) 22%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0.55) 78%,
+    transparent
+  );
+  opacity: 0.9;
+}
+
+[data-theme="dark"] #page-header.nav-fixed #nav::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12) 22%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.12) 78%,
+    transparent
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * 降级：系统要求减少动态效果时不做任何新东西
+ * （折射本身不是动画，但它会让滚动时的画面持续变化，
+ *   对前庭敏感的用户不友好，所以一并关掉）
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  #page-header.full_page:not(.nav-fixed) #nav,
+  #page-header.nav-fixed #nav {
+    -webkit-backdrop-filter: blur(7px) !important;
+    backdrop-filter: blur(7px) !important;
   }
 }

@@ -1,31 +1,29 @@
 /**
  * 滚动入场 + 卡片跟随光斑。
  *
- * 为什么做这两个
- * --------------
- * 它们都是「不改变信息结构、只改变观感」的增强：
- *   · 滚动入场：内容进入视口时淡入上浮，让长列表不再是一次性糊上来
- *   · 跟随光斑：鼠标在卡片上移动时，有一团柔光跟着走，卡片才有「材质感」
- * 两者都不动 DOM 结构、不依赖主题模板，换主题也能带走。
+ * ⚠️ 设计前提：这个脚本绝不能让页面内容不可见。
+ *   第一版只靠 IntersectionObserver，结果关于页整页空白 ——
+ *   25 个元素全部卡在 vw-reveal-wait（opacity 0），observer 没触发，
+ *   而元素自己不知道「我该显示了」。任何观察类动画都有这个风险
+ *   （observer 被 GC、元素在 observe 后被替换、浏览器标签页冻结……
+ *   具体原因可以慢慢查，但「白屏」这个后果一次都不能有）。
+ *
+ *   所以现在分三层：
+ *     1. 观察时已经在视口里（或已在视口上方）的 -> 立刻展开，不进等待态
+ *     2. 只有视口下方的才加 vw-reveal-wait 并交给 observer
+ *     3. 两道兜底：定时检查 + 滚动时检查，凡在视口内还没展开的一律强制展开
  *
  * 滚动入场
  * --------
- * 用 IntersectionObserver 而不是监听 scroll：
- *   · 不占主线程，滚动时零计算
- *   · 元素只触发一次（unobserve），不会来回闪
- * 错峰（stagger）按「同一批被观察到的元素」的下标算延迟，
- * 不是全局下标 —— 否则往下翻到第 30 篇时延迟会累加到 1 秒以上。
+ * 用 IntersectionObserver 而不是监听 scroll：不占主线程、一次性、不会来回闪。
+ * 错峰按「同一批进入视口的元素」按下标算延迟，不是全局下标 ——
+ * 否则翻到第 30 篇时延迟会累加到 1 秒以上；这里封顶 260ms。
  *
  * 鼠标光斑
  * --------
  * 用 CSS 变量把鼠标位置写给卡片（--mx / --my），光斑在 CSS 里画。
- * 这样 JS 只负责「写两个数字」，绘制交给合成层，不会触发 layout。
- * 用 rAF 节流：mousemove 触发频率远高于一帧一次，直接写变量会让样式重算排队。
- *
- * PJAX
- * ----
- * 换页后 #body-wrap 整个被替换，所以要在 pjax:complete 后重新扫描。
- * 已入场的元素带 data-vw-revealed，重复扫描会跳过。
+ * JS 只负责「写两个数字」，绘制交给合成层，不会触发 layout。
+ * 用 rAF 节流：pointermove 触发频率远高于一帧一次，直接写变量会让样式重算排队。
  */
 (function () {
   'use strict';
@@ -36,8 +34,6 @@
   var reduceMotion = window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ---- 滚动入场的目标选择器 --------------------------------------------
-  // 只挑「列表里的条目」和「正文里的块级元素」，不碰 banner / 侧边栏
   var REVEAL_SELECTORS = [
     '#recent-posts .recent-post-item',
     '#article-container > *',
@@ -46,22 +42,47 @@
     '#pagination .page-number',
   ];
 
-  var STAGGER = 45;        // 每个元素额外延迟 ms
-  var MAX_STAGGER = 260;   // 延迟封顶，避免长列表越翻越慢
+  var STAGGER = 45;
+  var MAX_STAGGER = 260;
+  var FAILSAFE_DELAY = 1200;
 
   var observer = null;
 
+  // ======================================================================
+  // 展开
+  // ======================================================================
+  function reveal(el, delay) {
+    // 关键：把 wait 态摘掉，不要指望 CSS 里两个类的顺序决定谁赢
+    el.classList.remove('vw-reveal-wait');
+    el.style.transitionDelay = (delay || 0) + 'ms';
+    el.classList.add('vw-reveal-in');
+    el.dataset.vwRevealed = '1';
+
+    setTimeout(function () {
+      el.style.transitionDelay = '';
+      el.classList.remove('vw-reveal-in');
+      // 展开后回到「不该被 will-change 占着」的状态
+      el.style.willChange = '';
+    }, (delay || 0) + 700);
+  }
+
+  function revealAll() {
+    var all = document.querySelectorAll('[data-vw-reveal="1"]');
+    for (var i = 0; i < all.length; i++) reveal(all[i], 0);
+  }
+
+  // ======================================================================
+  // 收集
+  // ======================================================================
   function collectTargets() {
     var out = [];
     for (var i = 0; i < REVEAL_SELECTORS.length; i++) {
       var nodes = document.querySelectorAll(REVEAL_SELECTORS[i]);
       for (var j = 0; j < nodes.length; j++) {
         var el = nodes[j];
-        if (el.dataset.vwRevealed === '1') continue;   // 已经处理过
-        if (el.dataset.vwReveal === '1') continue;     // 已在观察队列里
-        // 太矮的元素（分隔线、空行）不做动画，否则看着像闪烁
+        if (el.dataset.vwReveal === '1') continue;
         var r = el.getBoundingClientRect();
-        if (r.height < 24) continue;
+        if (r.height < 24) continue;      // 分隔线、空行不做动画
         el.dataset.vwReveal = '1';
         out.push(el);
       }
@@ -69,60 +90,94 @@
     return out;
   }
 
-  function reveal(el, delay) {
-    el.style.transitionDelay = delay + 'ms';
-    el.classList.add('vw-reveal-in');
-    el.dataset.vwRevealed = '1';
-    // 动画结束后清掉 transition-delay，避免影响后续的 hover 过渡
-    setTimeout(function () {
-      el.style.transitionDelay = '';
-      el.classList.remove('vw-reveal-wait');
-    }, delay + 700);
-  }
-
+  // ======================================================================
+  // 初始化
+  // ======================================================================
   function initObserver() {
     if (!('IntersectionObserver' in window)) {
-      // 老浏览器：不做动画，直接显示
-      var all = collectTargets();
-      for (var i = 0; i < all.length; i++) { all[i].dataset.vwRevealed = '1'; }
+      revealAll();
       return;
     }
 
-    if (!observer) {
-      observer = new IntersectionObserver(function (entries) {
-        // 同一批进入视口的元素按顺序错峰
-        var batch = [];
-        for (var i = 0; i < entries.length; i++) {
-          if (entries[i].isIntersecting) batch.push(entries[i].target);
-        }
-        batch.sort(function (a, b) {
-          return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
-        });
-        for (var k = 0; k < batch.length; k++) {
-          var el = batch[k];
-          observer.unobserve(el);
-          reveal(el, Math.min(k * STAGGER, MAX_STAGGER));
-        }
-      }, {
-        rootMargin: '0px 0px -8% 0px',   // 元素露出 8% 再触发，避免贴边就闪
-        threshold: 0.01,
-      });
+    var targets = collectTargets();
+    if (!targets.length) return;
+
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    // 视口底部留 8% 余量：元素露出 8% 以上才算「进入」
+    var line = vh * 0.92;
+
+    var instant = [];
+    var deferred = [];
+
+    for (var i = 0; i < targets.length; i++) {
+      var r = targets[i].getBoundingClientRect();
+      // r.top < line 包含「在视口内」和「已经在视口上方」（负值）
+      if (r.top < line) instant.push(targets[i]);
+      else deferred.push(targets[i]);
     }
 
-    var targets = collectTargets();
-    for (var t = 0; t < targets.length; t++) {
-      targets[t].classList.add('vw-reveal-wait');
-      observer.observe(targets[t]);
+    // ① 视口内的直接展开，连等待态都不加 —— 这是防白屏的第一道保险
+    for (var a = 0; a < instant.length; a++) {
+      reveal(instant[a], Math.min(a * STAGGER, MAX_STAGGER));
+    }
+
+    // ② 视口下方的才进入等待 + 观察
+    if (deferred.length) {
+      if (!observer) {
+        observer = new IntersectionObserver(function (entries) {
+          var batch = [];
+          for (var k = 0; k < entries.length; k++) {
+            if (entries[k].isIntersecting) batch.push(entries[k].target);
+          }
+          batch.sort(function (x, y) {
+            return x.getBoundingClientRect().top - y.getBoundingClientRect().top;
+          });
+          for (var m = 0; m < batch.length; m++) {
+            observer.unobserve(batch[m]);
+            reveal(batch[m], Math.min(m * STAGGER, MAX_STAGGER));
+          }
+        }, {
+          rootMargin: '0px 0px -8% 0px',
+          threshold: 0.01,
+        });
+      }
+      for (var b = 0; b < deferred.length; b++) {
+        deferred[b].classList.add('vw-reveal-wait');
+        observer.observe(deferred[b]);
+      }
+    }
+
+    // ③ 第二道保险：定时把「还在视口内但没展开」的强制展开
+    setTimeout(failsafe, FAILSAFE_DELAY);
+  }
+
+  // ======================================================================
+  // 兜底：凡在视口内还挂着 wait 的，一律展开
+  // ======================================================================
+  function failsafe() {
+    if (!document.querySelector('.vw-reveal-wait')) return;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var stuck = document.querySelectorAll('.vw-reveal-wait');
+    for (var i = 0; i < stuck.length; i++) {
+      var r = stuck[i].getBoundingClientRect();
+      if (r.top < vh) reveal(stuck[i], 0);   // 包括在视口上方的（负 top）
     }
   }
 
-  // ---- 卡片跟随光斑 ----------------------------------------------------
-  var SPOTLIGHT_SELECTOR = [
-    '.recent-post-item',
-    '.card-widget',
-    '.flink-list-item',
-  ].join(',');
+  var scrollPending = false;
+  function onScroll() {
+    if (scrollPending) return;
+    scrollPending = true;
+    requestAnimationFrame(function () {
+      scrollPending = false;
+      failsafe();
+    });
+  }
 
+  // ======================================================================
+  // 光斑
+  // ======================================================================
+  var SPOTLIGHT_SELECTOR = ['.recent-post-item', '.card-widget', '.flink-list-item'].join(',');
   var rafPending = false;
   var lastEvent = null;
 
@@ -131,7 +186,7 @@
     if (!lastEvent) return;
     var el = lastEvent.el;
     var r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
+    if (!r.width || !r.height) return;
     el.style.setProperty('--mx', (lastEvent.x - r.left) + 'px');
     el.style.setProperty('--my', (lastEvent.y - r.top) + 'px');
     lastEvent = null;
@@ -148,15 +203,20 @@
   }
 
   function bindSpotlight() {
-    // 只绑一次到 document，用委托 —— 不用管 PJAX 换掉了哪些卡片
     if (window.__vopthSpotlightBound) return;
     window.__vopthSpotlightBound = true;
     document.addEventListener('pointermove', onPointerMove, { passive: true });
   }
 
-  // ---- 启动 ------------------------------------------------------------
+  // ======================================================================
+  // 启动
+  // ======================================================================
   function boot() {
-    if (!reduceMotion) {
+    if (reduceMotion) {
+      // 用户要求减少动态效果：不加任何等待态，更不需要观察
+      var all = collectTargets();
+      for (var i = 0; i < all.length; i++) all[i].dataset.vwRevealed = '1';
+    } else {
       initObserver();
     }
     bindSpotlight();
@@ -167,6 +227,14 @@
   } else {
     boot();
   }
+
+  // 图片/字体加载完，布局会变，重新兜一次底
+  window.addEventListener('load', function () {
+    setTimeout(failsafe, 100);
+  });
+
+  // 滚动时兜底
+  window.addEventListener('scroll', onScroll, { passive: true });
 
   // PJAX 换页后重新扫描
   document.addEventListener('pjax:complete', function () {
