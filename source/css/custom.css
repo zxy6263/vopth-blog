@@ -3166,3 +3166,79 @@ pre,
     background: var(--card-bg);
   }
 }
+
+
+/* ===========================================================================
+   32. 文章页 390px 横向溢出修复
+   ---------------------------------------------------------------------------
+   现象
+   ----
+   手机上文章页可以左右拖动 60px：
+       documentElement.scrollWidth = 450，clientWidth = 390
+
+   定位过程（二等分藏区块）
+   ------------------------
+       藏 #article-container → 仍 450
+       藏 #aside-content     → 仍 450
+       藏 #post              → 仍 450
+       藏 #page-header       → 390   ← 就是它
+
+   根因
+   ----
+   banner 里那行元信息（发表于 / 分类 / 总字数 / 阅读）：
+
+       div#post-meta         display: block   w 390
+       div.meta-secondline   display: inline  w 435   ← 溢出的就是它
+       div.meta-firstline    display: inline  w 422
+
+   主题把 .meta-firstline / .meta-secondline 设成了 display: inline。
+   inline 盒子的宽度由内容决定，不受父容器 390 的约束 —— 所以整行滑了出去。
+
+   再叠加第 12 节那条规则（每项 white-space: nowrap，当初是为了不让
+   「折腾记录」被拆成「折腾记」+「录」），两项一拼就 435。
+
+   修法
+   ----
+   · 手机上把两个 meta 行改成 display: block —— 这样它被父容器 390 约束住
+   · 每一项改成 inline-block + 保留 nowrap —— 词内部仍然不断开，
+     但项与项之间有了换行机会
+   · 隐藏分隔符「|」，避免换行之后行首孤零零挂一个竖线
+
+   桌面端不用改：1140px 宽度下这些内容排一行绰绰有余。
+   =========================================================================== */
+
+@media screen and (max-width: 768px) {
+  #post-info .meta-firstline,
+  #post-info .meta-secondline {
+    display: block;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  /* 每一项：可以换行（inline-block），但自己内部不拆词（nowrap） */
+  #post-info .post-meta-date,
+  #post-info .post-meta-categories,
+  #post-info .post-meta-wordcount,
+  #post-info .post-meta-label,
+  #post-info .post-meta-pageviews {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  /* 换行后行首会出现一个孤立的「|」，直接藏掉 */
+  #post-info .post-meta-separator {
+    display: none;
+  }
+
+  /* 项之间补一点间距 —— 分隔符没了，靠 margin 分隔 */
+  #post-info .meta-firstline > span,
+  #post-info .meta-secondline > span {
+    margin-right: 10px;
+  }
+
+  #post-info .meta-firstline > span:last-child,
+  #post-info .meta-secondline > span:last-child {
+    margin-right: 0;
+  }
+}

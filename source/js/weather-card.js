@@ -37,6 +37,10 @@
 
   var CONFIG = {
     cacheTtl: 10 * 60 * 1000,   // 天气缓存 10 分钟
+    // 定位失败后的冷却时间。取 1 小时：
+    // 短了会把限流期间的请求打得更狠，长了则用户换网络（比如从移动数据切到宽带）
+    // 之后要等太久才能拿到正确位置。
+    failTtl: 60 * 60 * 1000,
     days: 3,                    // 预报天数
     timeout: 8000,              // 单次请求超时
     defaultCity: '辽阳',        // IP 定位失败时的兜底
@@ -47,6 +51,11 @@
     wx: 'vopth-weather-wx:v1',
     aq: 'vopth-weather-aq:v1',
     manual: 'vopth-weather-manual:v1',
+    // IP 定位失败的「负缓存」。
+    // ipwho.is 免费额度会限流（实测 429）。原来的逻辑是失败就每次都重试，
+    // 结果每打开一次页面就打一次接口、每次都 429，而且兜底永远落到默认城市。
+    // 现在记下失败时刻和兜底结果，一小时内直接复用，不再请求。
+    fail: 'vopth-weather-locfail:v1',
   };
 
   // ---- WMO 天气代码 -> 中文 + 图标 ---------------------------------------
@@ -124,6 +133,15 @@
     var cached = lsGet(LS.loc);
     if (cached && cached.lat != null) return Promise.resolve(cached);
 
+    // 负缓存：上次定位失败且还在一小时内，就不再去打 ipwho.is，
+    // 直接用上次算好的兜底城市。避免「每次开页面打一次接口、每次都 429」。
+    var fail = lsGet(LS.fail);
+    if (fail && Date.now() - fail.at < CONFIG.failTtl && fail.lat != null) {
+      return Promise.resolve({
+        city: fail.city, lat: fail.lat, lon: fail.lon, fallback: true
+      });
+    }
+
     return fetchJson('https://ipwho.is/')
       .then(function (j) {
         if (!j || j.success === false || j.latitude == null) throw new Error('ip locate failed');
@@ -133,11 +151,19 @@
           lon: j.longitude,
         };
         lsSet(LS.loc, loc);
+        // 这次成功了，把之前的失败标记清掉
+        try { localStorage.removeItem(LS.fail); } catch (e) {}
         return loc;
       })
       .catch(function () {
         // IP 定位挂了就用地理编码把默认城市查出来
-        return geocode(CONFIG.defaultCity);
+        return geocode(CONFIG.defaultCity).then(function (loc) {
+          // 记下失败时刻 + 兜底结果，一小时内不再重复请求
+          lsSet(LS.fail, {
+            at: Date.now(), city: loc.city, lat: loc.lat, lon: loc.lon
+          });
+          return loc;
+        });
       });
   }
 
