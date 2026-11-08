@@ -1,7 +1,7 @@
 ---
 title: 关于我
 date: 2026-10-03 00:00:00
-updated: 2026-11-04 08:30:00
+updated: 2026-11-09 03:20:00
 type: about
 # banner 用视频，由 source/js/banner-video.js 注入，
 # 并从视频池里随机挑一个（关于/归档/分类/标签/友链 共用同一个池）。
@@ -17,10 +17,7 @@ toc: false
   <div class="about-hero-body">
     <h2 class="about-name">vopth</h2>
     <p class="about-tagline">deepseek忠实合作伙伴</p>
-    <p class="about-desc">
-      在这里记技术笔记、踩过的坑，和一些不太成体系的想法。<br>
-      写得不多，但写下来的都是真折腾过的。
-    </p>
+    <p class="about-desc">写技术笔记和踩坑。更新很慢。</p>
     <div class="about-links">
       <a class="about-link-primary" href="https://github.com/zxy6263" target="_blank" rel="noopener"><i class="fab fa-github"></i>GitHub</a>
       <a href="mailto:3585648116@qq.com"><i class="fas fa-envelope"></i>邮箱</a>
@@ -42,46 +39,40 @@ toc: false
 
 ## 我是谁
 
-辽宁人，**INFP-A** —— 有点抽象，是个乐子人。
+辽宁人，INFP-A —— 有点抽象，是个乐子人。
 
-自称 deepseek 的忠实合作伙伴，所以目前主要精力确实花在**学怎么把 AI 调教好**上。不是研究模型本身，是研究怎么让模型按自己的想法干活：提示词、工具链、还有把一堆零散步骤串成自动流程。
+时间大部分花在 AI 上：改提示词、拼工具链、把零散步骤串成能自己跑完的流程。这两年在它上面耗的业余时间最多，博客里差不多一半文章是这么来的。
 
-玩得很杂。游戏是这样，技术栈也是这样 —— 什么都碰一点，很少精通某一项，但因此断断续续攒下不少「这玩意儿原来这么麻烦」的瞬间。这个博客基本就是这些瞬间的存档。
+游戏玩得杂。火影、VRChat、三角洲、三国杀、MC、COD 都碰，没一个玩到精。玩得最久的是火影，也仅仅是玩得久。
 
-## 我在折腾什么
+## 在做的
 
-**正在做的**
+- 调 AI，改提示词。这块最费时间，也最容易上头
+- 写代码，主要是 Web。偶尔接一些不太正常的活，比如让一块开发板冒充别人的心率带
+- 自建服务。能自己搭就不想用别人的，经常把自己搭进去 —— 这个博客就架在 Cloudflare Workers 上，一分钱不花
+- 记东西。踩过的坑通常都会写下来，不然下次还得再踩一遍
 
-- **调教 AI** —— 提示词、工具链、各种自动化，让模型自己跑完一整条链路
-- **写代码** —— 主要是 Web 相关的活，也偶尔碰一些奇奇怪怪的项目
-- **自建服务** —— 能自己搭的就不想用别人的，虽然经常把自己搭进去
-- **记录与写作** —— 把想明白的事情写清楚，是检验自己有没有真想明白的最好方式
+偶尔也碰硬件和逆向，纯属好奇。`openclaw` 放着吃灰，一个开源、自托管的 AI 智能体执行网关，折腾过一阵就没再动。
 
-**玩的游戏**
-
-火影忍者、VRChat、三角洲行动、三国杀、我的世界、使命召唤，以及一堆别的。欢迎来找我一起。
-
-**已经在吃灰的**
-
-- `openclaw` —— 一个开源、自托管的 AI 智能体执行网关。折腾过一阵，现在放在那儿了。
-
-## 关于这个博客
+## 这个博客
 
 | | |
 | --- | --- |
-| **域名** | `vopth.xyz` |
-| **生成器** | [Hexo](https://hexo.io) —— 写 Markdown，生成静态 HTML |
-| **主题** | [Butterfly](https://butterfly.js.org/) |
-| **托管** | [Cloudflare Workers 静态资源](https://workers.cloudflare.com/) —— 免费、无限带宽、自带 HTTPS |
-| **服务器** | 没有。也不需要。 |
+| 域名 | `vopth.xyz` |
+| 生成器 | [Hexo](https://hexo.io) |
+| 主题 | [Butterfly](https://butterfly.js.org/) |
+| 托管 | [Cloudflare Workers](https://workers.cloudflare.com/) |
+| 服务器 | 没有 |
 
-整个站点的源代码和文章都在 Git 里。这意味着改一篇文章的成本，就是打开编辑器、写几行字、推一次代码 —— **门槛低到不需要毅力**。
+文章和代码都在 Git 里，改一篇文章就是打开编辑器、写几行、推送。省事，所以能一直写下去。
+
+写的东西大致三类。一类是搭站和踩坑的过程，《这个博客是怎么搭的》那篇里记了 21 个坑。一类是硬件和逆向的记录，比如给一块开发板伪造 BLE 心率带那次。剩下的就是不成体系的随想，想到什么写什么，多半躺在「随笔」分类里。
 
 ## 找我
 
-评论用 [giscus](https://giscus.app/) 搭的，数据存在这个仓库的 GitHub Discussions 里，用 GitHub 账号登录就能发。
+评论用 [giscus](https://giscus.app/)，挂在 GitHub Discussions 上，GitHub 账号登录就能发。不想登录的话发邮件也行。
 
-有文章写错了、或者你有更好的做法，**非常欢迎指正** —— 这是这个博客存在的重要意义之一。
+写错了直接说。
 
 - 邮箱：[3585648116@qq.com](mailto:3585648116@qq.com)
 - GitHub：[@zxy6263](https://github.com/zxy6263)

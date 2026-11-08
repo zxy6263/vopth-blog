@@ -424,7 +424,7 @@
   display: flex;
   gap: 22px;
   align-items: center;
-  padding: 22px 24px;
+  padding: 15px 22px;
   margin-bottom: 4px;
   border-radius: 14px;
   /* 原来是一整块淡紫渐变，铺满之后发灰、显脏。
@@ -477,8 +477,8 @@
 
 .about-avatar {
   flex: 0 0 auto;
-  width: 104px;
-  height: 104px;
+  width: 88px;
+  height: 88px;
   border-radius: 50% !important;
   /* 头像原图是 400×400 白底 JPEG。
      fill 会把非正方形的图拉变形，cover 只裁不拉。 */
@@ -489,7 +489,7 @@
 }
 
 .about-name {
-  margin: 0 0 3px;
+  margin: 0 0 2px;
   font-size: 1.75rem;
   font-weight: 700;
   /* 主题给 h2 的 line-height 是 2，套在这个名字上实测有 51px 高 —— 白占一行 */
@@ -502,7 +502,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 9px;
+  margin: 0 0 5px;
   font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.5;
@@ -524,7 +524,7 @@
 }
 
 .about-desc {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: 0.95rem;
   line-height: 1.6;
   color: var(--card-meta);
