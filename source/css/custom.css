@@ -213,10 +213,6 @@
   z-index: 1;                 /* 压在扫光之上 */
 }
 
-/* 文字也要压在扫光之上 */
-.ph-links a {
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-}
 
 /* 深色模式：白玻璃换成黑玻璃
  * 上高光从 1.0 降到 0.14 —— 在深色底上全亮会像霓虹管 */
@@ -540,53 +536,13 @@
   gap: 8px;
 }
 
-/* 主次分明：GitHub 是实心（最可能被点的那个），其余是描边。
-   原来 4 个都是实心药丸，权重一样，既抢眼又没有指向性。 */
 
 
-.about-links a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 13px;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  border-radius: 999px;
-  color: #4a6cf7;
-  background: transparent;
-  border: 1px solid rgba(74, 108, 247, 0.28);
-  transition: color 0.22s, background 0.22s, border-color 0.22s, transform 0.22s;
-}
 
-.about-links a:hover {
-  color: #fff;
-  background: #4a6cf7;
-  border-color: #4a6cf7;
-  transform: translateY(-1px);
-}
 
-.about-links a.about-link-primary {
-  color: #fff;
-  background: #4a6cf7;
-  border-color: #4a6cf7;
-}
 
-.about-links a.about-link-primary:hover {
-  background: #3d5bd9;
-  border-color: #3d5bd9;
-}
 
-[data-theme="dark"] .about-links a {
-  color: #9db3ff;
-  border-color: rgba(110, 145, 255, 0.32);
-}
 
-[data-theme="dark"] .about-links a:hover,
-[data-theme="dark"] .about-links a.about-link-primary {
-  color: #fff;
-  background: #3d5bd9;
-  border-color: #3d5bd9;
-}
 
 
 
@@ -2637,5 +2593,576 @@ pre,
   #page-header.nav-fixed #nav {
     -webkit-backdrop-filter: blur(7px) !important;
     backdrop-filter: blur(7px) !important;
+  }
+}
+
+
+/* ===========================================================================
+   28. 液态玻璃按钮：应用到 .about-links
+   ---------------------------------------------------------------------------
+   下面这一组是从第 3 节那段 .ph-links a 自动生成的孪生规则 ——
+   目标是把首页简介卡片上那套玻璃按钮，同样用到关于页的四个链接上。
+
+   为什么是「复制一份」而不是「写成并列选择器」：
+     原作的选择器里有 [data-theme="dark"] .ph-links a 这种带前缀的形态。
+     如果只是把 ".ph-links a" 扩成 ".ph-links a, .about-links a"，
+     [data-theme] 就只作用于第一项，深色模式下的 about 按钮会失效。
+     所以按「整条选择器」为单位复制，前缀才能一起跟过去。
+
+   代价是这几十行是重复的。以后要改玻璃按钮的参数，
+   两处都要改（.ph-links a 和 .about-links a）。
+   =========================================================================== */
+
+
+.about-links a {
+
+  position: relative;
+  isolation: isolate;              /* 让内部的 ::after 高光不越界到外面 */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 15px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  border-radius: 999px;
+  overflow: hidden;                /* 镜面扫光要能被圆角裁掉 */
+
+  color: #3a5bd9;
+
+  /* ① 半透明底 + 冷调（Apple 那种偏蓝的白） */
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(226, 236, 255, 0.5)
+  );
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+
+  /* ② 玻璃边界 + ③ 色散近似
+   *    外层紫、内层青的极淡双层描边，模拟光在玻璃边缘的分光。
+   *    真色散要逐像素做，这里只是在厚度上给一点「边缘有颜色」的暗示。 */
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    /* 镜面：顶部最亮，模拟光源在上方 */
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    /* 菲涅尔：左右边缘也各有一条，越靠边越亮 */
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    /* 色散暗示：内圈的青 / 外圈紫 */
+    inset 0 0 0 1px rgba(120, 210, 255, 0.16),
+    0 0 0 1px rgba(150, 110, 255, 0.1),
+    /* 玻璃厚度带来的外投影 */
+    0 4px 14px rgba(74, 108, 247, 0.16),
+    0 1px 3px rgba(16, 22, 40, 0.07);
+
+  /* ④ 弹性：spring 曲线，越过目标再回来 */
+  transition:
+    color 0.28s ease,
+    background 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.about-links a:hover {
+
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.92),
+    rgba(110, 92, 247, 0.88)
+  );
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 22px rgba(74, 108, 247, 0.32),
+    0 2px 6px rgba(16, 22, 40, 0.1);
+  transform: translateY(-2px) scale(1.035);
+}
+
+.about-links a:active {
+
+  transform: translateY(0) scale(0.955);
+  transition-duration: 0.12s;
+}
+
+.about-links a::after {
+
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.85) 46%,
+    rgba(255, 255, 255, 0.25) 54%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+.about-links a:hover::after {
+
+  opacity: 1;
+  animation: vw-glass-sheen 0.72s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+.about-links a i {
+
+  font-size: 0.95em;
+  position: relative;
+  z-index: 1;                 /* 压在扫光之上 */
+}
+
+
+[data-theme="dark"] .about-links a {
+
+  color: #a8bdff;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(120, 150, 255, 0.06)
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 rgba(255, 255, 255, 0.07),
+    inset -1px 0 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(120, 210, 255, 0.08),
+    0 0 0 1px rgba(150, 110, 255, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.32);
+  text-shadow: none;
+}
+
+[data-theme="dark"] .about-links a:hover {
+
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 8px 22px rgba(74, 108, 247, 0.36);
+}
+
+[data-theme="dark"] .about-links a::after {
+
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.42) 46%,
+    rgba(255, 255, 255, 0.12) 54%,
+    transparent 66%
+  );
+}
+
+/* ---- .about-links a 的降级（和上面 .ph-links a 那套对应）---- */
+@media (prefers-reduced-motion: reduce) {
+  .about-links a,
+  .about-links a:hover,
+  .about-links a:active {
+    transition: color 0.25s, background 0.25s;
+    transform: none;
+  }
+
+  .about-links a:hover::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+
+/* ===========================================================================
+   29. 液态玻璃按钮：扩展到侧边栏 / 右下工具条 / 分页
+   ---------------------------------------------------------------------------
+   .ph-links a 和 .about-links a 那套玻璃（第 3 节 + 第 28 节）在这里复用到
+   另外三组按钮上。三组几何形状不同，所以没有硬套同一份规则：
+
+     元素                    实测尺寸      原样式           这里的处理
+     #card-info-btn          241×35 r7     实心靛蓝 + 白字   玻璃 + 999px 胶囊
+     #rightside > div > a/b  35×35  r5     实心靛蓝 + 白图标  玻璃 + 999px 圆形
+     #pagination .page-number 35×35 r8     当前页青色        玻璃 + 10px 圆角方
+
+   为什么分页用 10px 而不是圆形：
+     页码是一组平行排列的数字，方形网格更利于横向扫读；
+     圆形会让它们看起来像一排独立按钮，而不是「第几页」的序列。
+
+   三个共同的视觉语言（和小按钮保持一致）：
+     · 半透明白/冷调底 + backdrop-filter
+     · 1px 白色描边 + 四边 inset 镜面高光（左上最亮、右下反射）
+     · spring 弹性形变 + hover 时的镜面扫光
+   =========================================================================== */
+
+/* ===========================================================================
+   29.1 侧边栏「关注我」（整行宽的 CTA）
+   ---------------------------------------------------------------------------
+   241×35 的横向按钮。用 999px 让它成为胶囊 —— 高度只有 35px，
+   胶囊和圆角矩形在视觉上差别不大，但胶囊和上面那排 .ph-links 更连贯。
+
+   注：它原来是实心靛蓝（唯一的「主 CTA」）。改成玻璃后主次感会弱一些，
+   这是「全部统一成玻璃」必然的代价。如果以后想让它重新突出，
+   把 background 换成 rgba(74,108,247,.22) 之类的淡主色即可。
+   =========================================================================== */
+#aside-content .card-info #card-info-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+
+  color: #3a5bd9;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(226, 236, 255, 0.5)
+  );
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1px rgba(120, 210, 255, 0.16),
+    0 0 0 1px rgba(150, 110, 255, 0.1),
+    0 4px 14px rgba(74, 108, 247, 0.16),
+    0 1px 3px rgba(16, 22, 40, 0.07);
+
+  transition:
+    color 0.28s ease,
+    background 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#aside-content .card-info #card-info-btn:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.92),
+    rgba(110, 92, 247, 0.88)
+  );
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 22px rgba(74, 108, 247, 0.32),
+    0 2px 6px rgba(16, 22, 40, 0.1);
+  transform: translateY(-2px) scale(1.02);
+}
+
+#aside-content .card-info #card-info-btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.12s;
+}
+
+#aside-content .card-info #card-info-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.85) 46%,
+    rgba(255, 255, 255, 0.25) 54%,
+    transparent 66%
+  );
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+#aside-content .card-info #card-info-btn:hover::after {
+  opacity: 1;
+  animation: vw-glass-sheen 0.72s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+/* 图标和文字压到扫光之上 */
+#aside-content .card-info #card-info-btn i,
+#aside-content .card-info #card-info-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+/* 深色模式 */
+[data-theme="dark"] #aside-content .card-info #card-info-btn {
+  color: #a8bdff;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(120, 150, 255, 0.06)
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 rgba(255, 255, 255, 0.07),
+    inset -1px 0 0 rgba(255, 255, 255, 0.07),
+    0 4px 14px rgba(0, 0, 0, 0.32);
+}
+
+[data-theme="dark"] #aside-content .card-info #card-info-btn:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===========================================================================
+   29.2 右下角工具条（返回顶部 / 齿轮 / 后台入口 等）
+   ---------------------------------------------------------------------------
+   35×35 的方形图标按钮，原来 radius 5px、实心靛蓝、白色图标。
+   改成玻璃圆形：35px 的正方形正好可以做成圆，和左下角的音乐按钮同构。
+   =========================================================================== */
+#rightside > div > button,
+#rightside > div > a {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px !important;
+
+  color: #3a5bd9;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.74),
+    rgba(226, 236, 255, 0.52)
+  );
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    0 3px 10px rgba(74, 108, 247, 0.16),
+    0 1px 3px rgba(16, 22, 40, 0.07);
+
+  transition:
+    color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#rightside > div > button:hover,
+#rightside > div > a:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.94),
+    rgba(110, 92, 247, 0.9)
+  );
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 6px 16px rgba(74, 108, 247, 0.34);
+  transform: scale(1.08);
+}
+
+#rightside > div > button:active,
+#rightside > div > a:active {
+  transform: scale(0.94);
+  transition-duration: 0.12s;
+}
+
+/* 图标和数字压到扫光之上 */
+#rightside > div > button > i,
+#rightside > div > a > i,
+#rightside .percent {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dark"] #rightside > div > button,
+[data-theme="dark"] #rightside > div > a {
+  color: #a8bdff;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(120, 150, 255, 0.06)
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] #rightside > div > button:hover,
+[data-theme="dark"] #rightside > div > a:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ===========================================================================
+   29.3 分页
+   ---------------------------------------------------------------------------
+   35×35，原来 radius 8px。这里用 10px 圆角方，不用圆形 ——
+   页码是一组平行数字，方形网格更利于横向扫读。
+
+   ⚠️ 当前页原来是青色 rgb(0,196,182)（站点次色 --btn-bg 之类）。
+   套上玻璃后如果还是同样的白玻璃，就和普通页码长得一样了，
+   所以当前页单独给一层淡主色 + 加粗。
+   =========================================================================== */
+#pagination .page-number,
+#pagination .extend {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+
+  color: #3a5bd9;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(226, 236, 255, 0.5)
+  );
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.05);
+
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    0 3px 10px rgba(74, 108, 247, 0.14),
+    0 1px 3px rgba(16, 22, 40, 0.06);
+
+  transition:
+    color 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#pagination .page-number:hover,
+#pagination .extend:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.94),
+    rgba(110, 92, 247, 0.9)
+  );
+  border-color: rgba(255, 255, 255, 0.55);
+  transform: translateY(-2px) scale(1.04);
+}
+
+#pagination .page-number:active,
+#pagination .extend:active {
+  transform: scale(0.94);
+  transition-duration: 0.12s;
+}
+
+/* 当前页：淡主色，让它从其它页码里跳出来
+ * 选择器要盖过主题原来的青色，所以用 .current 这个类 + 后加载。 */
+#pagination .page-number.current {
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.88),
+    rgba(110, 92, 247, 0.82)
+  );
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+    0 5px 16px rgba(74, 108, 247, 0.34);
+}
+
+[data-theme="dark"] #pagination .page-number,
+[data-theme="dark"] #pagination .extend {
+  color: #a8bdff;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(120, 150, 255, 0.06)
+  );
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] #pagination .page-number:hover,
+[data-theme="dark"] #pagination .extend:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+}
+
+[data-theme="dark"] #pagination .page-number.current {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    rgba(74, 108, 247, 0.9),
+    rgba(110, 92, 247, 0.86)
+  );
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ===========================================================================
+   29.4 降级
+   =========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  #card-info-btn,
+  #aside-content .card-info #card-info-btn:hover,
+  #aside-content .card-info #card-info-btn:active,
+  #rightside > div > button,
+  #rightside > div > a,
+  #rightside > div > button:hover,
+  #rightside > div > a:hover,
+  #pagination .page-number,
+  #pagination .extend,
+  #pagination .page-number:hover,
+  #pagination .extend:hover {
+    transition: color 0.25s, background 0.25s;
+    transform: none;
+  }
+
+  #aside-content .card-info #card-info-btn:hover::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* 不支持 backdrop-filter：退回不透明底，保证文字可读 */
+@supports not (backdrop-filter: blur(1px)) {
+  #card-info-btn,
+  #rightside > div > button,
+  #rightside > div > a,
+  #pagination .page-number,
+  #pagination .extend {
+    background: var(--card-bg);
   }
 }
